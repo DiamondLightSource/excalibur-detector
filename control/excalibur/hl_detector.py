@@ -610,19 +610,21 @@ class HLExcaliburDetector(ExcaliburDetector):
                         self._frame_start_count = 0
                         self._frame_count_time = None
                         frame_rate = 0.0
-                    #logging.error("Current frame rate %f", frame_rate)
-                    delta_t = (datetime.now() - self._acq_start_time).seconds
-                    # Work out the worst case for number of expected frames (assuming 10% plus 1 second startup)
-                    delta_t -= 1.0
-                    if delta_t > 0.0:
-                        expected_frames = int(delta_t / (self._acq_exposure * 1.1))
-                        logging.debug("We would have expected %d frames by now", expected_frames)
-                        if expected_frames > frames_acquired:
-                            self._acquiring = False
-                            # Acquisition has finished so we must send the stop command
-                            self.set_error("stop_acquisition called due to a timeout")
-                            logging.debug("stop_acquisition called due to a timeout")
-                            self.hl_stop_acquisition()
+
+                    # We can only time out if we are not waiting for triggers
+                    if self._param['config/trigger_mode'].index == ExcaliburDefinitions.FEM_TRIGMODE_INTERNAL:
+                        delta_t = (datetime.now() - self._acq_start_time).seconds
+                        # Work out the worst case for number of expected frames (assuming 10% plus 1 second startup)
+                        delta_t -= 1.0
+                        if delta_t > 0.0:
+                            expected_frames = int(delta_t / (self._acq_exposure * 1.1))
+                            logging.debug("We would have expected %d frames by now", expected_frames)
+                            if expected_frames > frames_acquired:
+                                self._acquiring = False
+                                # Acquisition has finished so we must send the stop command
+                                self.set_error("stop_acquisition called due to a timeout")
+                                logging.debug("stop_acquisition called due to a timeout")
+                                self.hl_stop_acquisition()
 
             init_state = []
             for fem_state in self.get('status/fem')['fem']:
