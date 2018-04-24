@@ -322,6 +322,7 @@ class HLExcaliburDetector(ExcaliburDetector):
         self.hl_write_params(udp_params)
 
     def shutdown(self):
+        self.hl_lv_enable('lv_enable', 0)
         self._executing_updates = False
 
     def set_calibration_status(self, fem, status, area=None):
