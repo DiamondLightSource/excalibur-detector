@@ -282,9 +282,11 @@ class HLExcaliburDetector(ExcaliburDetector):
                 udp_config = json.load(config_file)
         except IOError as io_error:
             logging.error("Failed to open UDP configuration file: {}".format(io_error))
+            self.set_error("Failed to open UDP configuration file: {}".format(io_error))
             return
         except ValueError as value_error:
             logging.error("Failed to parse UDP json config: {}".format(value_error))
+            self.set_error("Failed to parse UDP json config: {}".format(value_error))
             return
 
         source_data_addr = []
