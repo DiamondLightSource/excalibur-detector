@@ -807,8 +807,11 @@ class HLExcaliburDetector(ExcaliburDetector):
                         break
 
                 if not self._read_efuse_ids:
-                    self._status.update(self.hl_efuseid_read())
-                    self._read_efuse_ids = True
+                    response_status, efuse_dict = self.hl_efuseid_read()
+                    self._status.update(efuse_dict)
+                    logging.error("EFUSE return status: %s", response_status)
+                    if response_status == 0:
+                        self._read_efuse_ids = True
 
                 logging.debug("Slow update status: %s", self._status)
 
@@ -1004,6 +1007,7 @@ class HLExcaliburDetector(ExcaliburDetector):
             return self.wait_for_completion()
 
     def hl_efuseid_read(self):
+        response_status = 0
         efuse_dict = {'efuseid_c0': [],
                       'efuseid_c1': [],
                       'efuseid_c2': [],
@@ -1012,30 +1016,36 @@ class HLExcaliburDetector(ExcaliburDetector):
                       'efuseid_c5': [],
                       'efuseid_c6': [],
                       'efuseid_c7': []}
-        fe_params = ['efuseid']
-        read_params = ExcaliburReadParameter(fe_params)
-        self.read_fe_param(read_params)
+        try:
+            fe_params = ['efuseid']
+            read_params = ExcaliburReadParameter(fe_params)
+            self.read_fe_param(read_params)
 
-        while True:
-            time.sleep(0.1)
-            if not self.command_pending():
-                if self._get('command_succeeded'):
-                    logging.info("Command has succeeded")
-                    status = super(HLExcaliburDetector, self).get('command')['command']['fe_param_read']['value']
-                    #logging.error("Status: %s", status)
-                    for efuse in status['efuseid']:
-                        efuse_dict['efuseid_c0'].append(efuse[0])
-                        efuse_dict['efuseid_c1'].append(efuse[1])
-                        efuse_dict['efuseid_c2'].append(efuse[2])
-                        efuse_dict['efuseid_c3'].append(efuse[3])
-                        efuse_dict['efuseid_c4'].append(efuse[4])
-                        efuse_dict['efuseid_c5'].append(efuse[5])
-                        efuse_dict['efuseid_c6'].append(efuse[6])
-                        efuse_dict['efuseid_c7'].append(efuse[7])
-                break
+            while True:
+                time.sleep(0.1)
+                if not self.command_pending():
+                    if self._get('command_succeeded'):
+                        logging.info("Command has succeeded")
+                        status = super(HLExcaliburDetector, self).get('command')['command']['fe_param_read']['value']
+                        #logging.error("Status: %s", status)
+                        for efuse in status['efuseid']:
+                            efuse_dict['efuseid_c0'].append(efuse[0])
+                            efuse_dict['efuseid_c1'].append(efuse[1])
+                            efuse_dict['efuseid_c2'].append(efuse[2])
+                            efuse_dict['efuseid_c3'].append(efuse[3])
+                            efuse_dict['efuseid_c4'].append(efuse[4])
+                            efuse_dict['efuseid_c5'].append(efuse[5])
+                            efuse_dict['efuseid_c6'].append(efuse[6])
+                            efuse_dict['efuseid_c7'].append(efuse[7])
+                    break
+        except:
+            # Unable to get the efuse IDs so set the dict up with None vales
+            response_status = -1
+            for efuse_name in efuse_dict:
+                efuse_dict[efuse_name].append(None)
 
         logging.error("EFUSE: %s", efuse_dict)
-        return efuse_dict
+        return response_status, efuse_dict
 
     def get_fem_error_state(self):
         fem_state = self.get('status/fem')['fem']
