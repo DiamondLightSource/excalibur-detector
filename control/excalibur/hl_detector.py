@@ -171,6 +171,9 @@ class HLExcaliburDetector(ExcaliburDetector):
             'config/trigger_mode': EnumParameter('trigger_mode',
                                                  ExcaliburDefinitions.FEM_TRIGMODE_NAMES[0],
                                                  ExcaliburDefinitions.FEM_TRIGMODE_NAMES),
+            'config/trigger_polarity': EnumParameter('trigger_polarity',
+                                                     ExcaliburDefinitions.FEM_TRIGPOLARITY_NAMES[1],
+                                                     ExcaliburDefinitions.FEM_TRIGPOLARITY_NAMES),
             'config/csm_spm_mode': EnumParameter('csm_spm_mode',
                                                  ExcaliburDefinitions.FEM_CSMSPM_MODE_NAMES[0],
                                                  ExcaliburDefinitions.FEM_CSMSPM_MODE_NAMES,
@@ -844,6 +847,10 @@ class HLExcaliburDetector(ExcaliburDetector):
             trigger_mode = self._param['config/trigger_mode']
             logging.info('  Setting trigger mode to {}'.format(trigger_mode.value))
             write_params.append(ExcaliburParameter('mpx3_externaltrigger', [[trigger_mode.index]]))
+
+            trigger_polarity = self._param['config/trigger_polarity']
+            logging.info('  Setting trigger polarity to {}'.format(trigger_polarity.value))
+            write_params.append(ExcaliburParameter('mpx3_triggerpolarity', [[trigger_polarity.index]]))
 
             read_write_mode = self._param['config/read_write_mode']
             logging.info('  Setting ASIC readout mode to {}'.format(read_write_mode.value))
