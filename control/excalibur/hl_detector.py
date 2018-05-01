@@ -211,9 +211,40 @@ class HLExcaliburDetector(ExcaliburDetector):
             },
             'manufacturer': 'DLS/STFC',
             'model': 'Odin [Excalibur2]',
-            'error': ''
+            'error': '',
+            'fe_lv_enable': [None],
+            'fe_hv_enable': [None],
+            'pwr_p5va_vmon': [None],
+            'pwr_p5vb_vmon': [None],
+            'pwr_p5v_fem00_imon': [None],
+            'pwr_p5v_fem01_imon': [None],
+            'pwr_p5v_fem02_imon': [None],
+            'pwr_p5v_fem03_imon': [None],
+            'pwr_p5v_fem04_imon': [None],
+            'pwr_p5v_fem05_imon': [None],
+            'pwr_p48v_vmon': [None],
+            'pwr_p48v_imon': [None],
+            'pwr_p5vsup_vmon': [None],
+            'pwr_p5vsup_imon': [None],
+            'pwr_humidity_mon': [None],
+            'pwr_air_temp_mon': [None],
+            'pwr_coolant_temp_mon': [None],
+            'pwr_coolant_flow_mon': [None],
+            'pwr_p3v3_imon': [None],
+            'pwr_p1v8_imonA': [None],
+            'pwr_bias_imon': [None],
+            'pwr_p3v3_vmon': [None],
+            'pwr_p1v8_vmon': [None],
+            'pwr_bias_vmon': [None],
+            'pwr_p1v8_imonB': [None],
+            'pwr_p1v8_vmonB': [None],
+            'pwr_coolant_temp_status': [None],
+            'pwr_humidity_status': [None],
+            'pwr_coolant_flow_status': [None],
+            'pwr_air_temp_status': [None],
+            'pwr_fan_fault': [None]
         }
-        logging.debug("Status: %s", self._status)
+        logging.error("Status: %s", self._status)
         self._calibration_status = {
             'dac': [0] * len(self._fems),
             'discl': [0] * len(self._fems),
@@ -238,6 +269,8 @@ class HLExcaliburDetector(ExcaliburDetector):
         self._slow_update_time = datetime.now()
         self._frame_start_count = 0
         self._frame_count_time = None
+        # Perform a slow read
+        self.slow_read()
         self._status_thread = threading.Thread(target=self.status_loop)
         self._status_thread.start()
 
