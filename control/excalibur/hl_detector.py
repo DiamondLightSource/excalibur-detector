@@ -207,7 +207,8 @@ class HLExcaliburDetector(ExcaliburDetector):
             'sensor': {
                 'width': ExcaliburDefinitions.X_PIXELS_PER_CHIP * ExcaliburDefinitions.X_CHIPS_PER_FEM,
                 'height': ExcaliburDefinitions.Y_PIXELS_PER_CHIP *
-                          ExcaliburDefinitions.Y_CHIPS_PER_FEM * len(self._fems)
+                          ExcaliburDefinitions.Y_CHIPS_PER_FEM * len(self._fems),
+                'bytes': 0
             },
             'manufacturer': 'DLS/STFC',
             'model': 'Odin [Excalibur2]',
@@ -593,6 +594,15 @@ class HLExcaliburDetector(ExcaliburDetector):
 
     def fast_read(self):
         status = {}
+        with self._param_lock:
+            bit_depth = self._param['config/counter_depth'].value
+            bps = 1
+            if bit_depth == '12':
+                bps = 2
+            elif bit_depth == '24':
+                bps = 4
+            self._status['sensor']['bytes'] = self._status['sensor']['width'] * self._status['sensor']['height'] * bps
+
         frame_rate = 0.0
         with self._comms_lock:
             acq_completion_state_mask = 0x40000000
