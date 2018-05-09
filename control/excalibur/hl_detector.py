@@ -315,7 +315,7 @@ class HLExcaliburDetector(ExcaliburDetector):
             dest_data_mac.append(node['mac'])
             dest_data_port.append(int(node['port']))
 
-            logging.debug('    Node {:d} : ip {:16s} mac: {:s} port: {:5d}'.format(
+            logging.error('    Node {:d} : ip {:16s} mac: {:s} port: {:5d}'.format(
                 idx, dest_data_addr[-1], dest_data_mac[-1],
                 dest_data_port[-1]
             ))
@@ -357,8 +357,9 @@ class HLExcaliburDetector(ExcaliburDetector):
         udp_params.append(ExcaliburParameter('farm_mode_num_dests', [[farm_mode_num_dests]]))
 
         # Write all the parameters to system
-        logging.info('Writing UDP configuration parameters to system')
+        logging.error('Writing UDP configuration parameters to system')
         self.hl_write_params(udp_params)
+        logging.error('UDP configuration complete')
 
     def shutdown(self):
         self.hl_lv_enable('lv_enable', 0)
@@ -961,15 +962,16 @@ class HLExcaliburDetector(ExcaliburDetector):
             # self.connect({'state': True})
 
             # Write all the parameters to system
-            logging.debug('Writing configuration parameters to system {}'.format(str(write_params)))
+            logging.error('Writing configuration parameters to system {}'.format(str(write_params)))
             self.hl_write_params(write_params)
 
             self._frame_start_count = 0
             self._frame_count_time = None
 
             # Send start acquisition command
-            logging.info('Sending start acquisition command')
+            logging.error('Sending start acquisition command')
             self.hl_start_acquisition()
+            logging.error('Start acquisition completed')
 
     def hl_initialise(self):
         self.do_command('fe_init', params=None)
