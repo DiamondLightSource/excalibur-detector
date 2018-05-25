@@ -72,6 +72,128 @@ class ExcaliburDefinitions(object):
 
     FEM_COUNTER_DEPTH_MAP = {'1': 0, '6': 1, '12': 2, '24': 3}
 
+    FEM_DISCSPMCSM_OFF = 0
+    FEM_DISCSPMCSM_ON = 1
+
+    DISC_SPM_CSM_TABLE = [
+        # 1 bit
+        [
+            # SPM
+            [
+                # Threshold 0
+                [
+                    [FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_ON, FEM_DISCSPMCSM_OFF],
+                    [FEM_DISCSPMCSM_ON,  FEM_DISCSPMCSM_ON, FEM_DISCSPMCSM_OFF]
+                ],
+                # Threshold 1
+                [
+                    [FEM_DISCSPMCSM_ON,  FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF],
+                    [FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF]
+                ]
+            ],
+            # CSM
+            [
+                # Threshold 0
+                [
+                    [FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF],
+                    [FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF]
+                ],
+                # Threshold 1
+                [
+                    [FEM_DISCSPMCSM_ON,  FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF],
+                    [FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF]
+                ]
+            ]
+        ],
+        # 6 bit
+        [
+            # SPM
+            [
+                # Threshold 0
+                [
+                    [FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_ON, FEM_DISCSPMCSM_OFF],
+                    [FEM_DISCSPMCSM_ON,  FEM_DISCSPMCSM_ON, FEM_DISCSPMCSM_OFF]
+                ],
+                # Threshold 1
+                [
+                    [FEM_DISCSPMCSM_ON,  FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF],
+                    [FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF]
+                ]
+            ],
+            # CSM
+            [
+                # Threshold 0
+                [
+                    [FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF],
+                    [FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF]
+                ],
+                # Threshold 1
+                [
+                    [FEM_DISCSPMCSM_ON,  FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF],
+                    [FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF]
+                ]
+            ]
+        ],
+        # 12 bit
+        [
+            # SPM
+            [
+                # Threshold 0
+                [
+                    [FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_ON, FEM_DISCSPMCSM_OFF],
+                    [FEM_DISCSPMCSM_ON,  FEM_DISCSPMCSM_ON, FEM_DISCSPMCSM_OFF]
+                ],
+                # Threshold 1
+                [
+                    [FEM_DISCSPMCSM_ON,  FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF],
+                    [FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF]
+                ]
+            ],
+            # CSM
+            [
+                # Threshold 0
+                [
+                    [FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF],
+                    [FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF]
+                ],
+                # Threshold 1
+                [
+                    [FEM_DISCSPMCSM_ON,  FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF],
+                    [FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF]
+                ]
+            ]
+        ],
+        # 24 bit
+        [
+            # SPM
+            [
+                # Threshold 0
+                [
+                    [FEM_DISCSPMCSM_ON,  FEM_DISCSPMCSM_ON, FEM_DISCSPMCSM_OFF],
+                    [FEM_DISCSPMCSM_ON,  FEM_DISCSPMCSM_ON, FEM_DISCSPMCSM_OFF]
+                ],
+                # Threshold 1
+                [
+                    [FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF],
+                    [FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF]
+                ]
+            ],
+            # CSM
+            [
+                # Threshold 0
+                [
+                    [FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF],
+                    [FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF]
+                ],
+                # Threshold 1
+                [
+                    [FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF],
+                    [FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF]
+                ]
+            ]
+        ]
+    ]
+
     @classmethod
     def _resolve_mode_name(cls, mode, names):
         try:
