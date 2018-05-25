@@ -81,7 +81,7 @@ namespace FrameProcessor
       {
         std::stringstream ss;
         ss << "Invalid bit depth requested: " << bit_depth_str;
-        this->set_error(ss.str(), 2);
+        this->set_error(ss.str());
         LOG4CXX_ERROR(logger_, "Invalid bit depth requested: " << bit_depth_str);
         throw std::runtime_error("Invalid bit depth requested");
       }
@@ -105,6 +105,7 @@ namespace FrameProcessor
   {
     // Return the configuration of the process plugin
     std::string base_str = get_name() + "/";
+    reply.set_param(base_str + ExcaliburProcessPlugin::CONFIG_DROPPED_PACKETS, packets_lost_);
     reply.set_param(base_str + ExcaliburProcessPlugin::CONFIG_ASIC_COUNTER_DEPTH, BIT_DEPTH[asic_counter_depth_]);
     reply.set_param(base_str + ExcaliburProcessPlugin::CONFIG_IMAGE_WIDTH, image_width_);
     reply.set_param(base_str + ExcaliburProcessPlugin::CONFIG_IMAGE_HEIGHT, image_height_);
@@ -141,8 +142,6 @@ namespace FrameProcessor
       LOG4CXX_ERROR(logger_, "Frame number " << hdr_ptr->frame_number << " has dropped " << packets_lost << " packets");
       packets_lost_ += packets_lost;
       LOG4CXX_ERROR(logger_, "Total packets lost since startup " << packets_lost_);
-      for (int index = 0; index < )
-      hdr_ptr->packet_state[max_num_subframes][max_primary_packets + num_tail_packets]
     }
   }
 
@@ -209,7 +208,7 @@ namespace FrameProcessor
             << ((max_active_fem_idx + 1) * FEM_TOTAL_PIXELS)
             << ", max FEM idx: " << max_active_fem_idx
             << ") will exceed dimensions of output image (" << image_pixels_ << ")";
-        this->set_error(msg.str(), 1);
+        this->set_error(msg.str());
         throw std::runtime_error(msg.str());
       }
 
@@ -217,7 +216,7 @@ namespace FrameProcessor
       reordered_image = (void*)malloc(output_image_size);
       if (reordered_image == NULL)
       {
-        this->set_error("Failed to allocate temporary buffer for reordered image", 1);
+        this->set_error("Failed to allocate temporary buffer for reordered image");
         throw std::runtime_error("Failed to allocate temporary buffer for reordered image");
       }
 
@@ -318,7 +317,7 @@ namespace FrameProcessor
     {
       std::stringstream ss;
       ss << "EXCALIBUR frame decode failed: " << e.what();
-      this->set_error(ss.str(), 1);
+      this->set_error(ss.str());
       LOG4CXX_ERROR(logger_, ss.str());
     }
   }
@@ -352,7 +351,7 @@ namespace FrameProcessor
       {
         std::stringstream msg;
         msg << "Invalid bit depth specified for reordered slice size: " << asic_counter_depth;
-        this->set_error(msg.str(), 1);
+        this->set_error(msg.str());
         throw std::runtime_error(msg.str());
       }
       break;
