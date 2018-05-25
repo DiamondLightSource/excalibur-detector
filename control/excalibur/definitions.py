@@ -12,6 +12,8 @@ class ExcaliburDefinitions(object):
     X_CHIPS_PER_FEM = 8
     Y_CHIPS_PER_FEM = 1
 
+    FEM_DEFAULT_CHIP_IDS = [1, 2, 3, 4, 5, 6, 7, 8]
+
     FEM_PIXELS_PER_CHIP = X_PIXELS_PER_CHIP * Y_PIXELS_PER_CHIP
 
     FEM_TRIGMODE_INTERNAL = 0

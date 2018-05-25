@@ -47,24 +47,39 @@ class DetectorCalibration(object):
     def get_dac(self, fem):
         # Check if we need to update the dac from the energy threshold
         dac = self._dacs[fem]
+        #if fem & 1 != 1:
+        #    dac = list(reversed(dac))
         if fem in self._thresh0:
+            logging.error("** FEM Number: {}".format(fem))
             thresh = self._thresh0[fem]
             if thresh.gains is not None and thresh.offsets is not None:
+                gains = thresh.gains
+                offsets = thresh.offsets
+                #if fem & 1 != 1:
+                #    gains = list(reversed(gains))
+                #    offsets = list(reversed(offsets))
+                logging.error(gains)
+                logging.error(offsets)
                 for chip in self.CHIPS:
                     #logging.debug("Updating DAC value [fem %d chip %d]", fem, chip)
                     #logging.debug("Gain [%s]", thresh.gains[chip - 1])
                     #logging.debug("Offset [%s]", thresh.offsets[chip - 1])
-                    val = int(round(thresh.gains[chip - 1] * self._energy_threshold + thresh.offsets[chip - 1]))
+                    val = int(round(gains[chip - 1] * self._energy_threshold + offsets[chip - 1]))
                     #logging.debug("Updating DAC value [fem %d chip %d] to %s", fem, chip, val)
                     dac.update_dac_value(fem, chip, 'Threshold0', val)
         if fem in self._thresh1:
             thresh = self._thresh1[fem]
             if thresh.gains is not None and thresh.offsets is not None:
+                gains = thresh.gains
+                offsets = thresh.offsets
+                #if fem & 1 != 1:
+                #    gains = list(reversed(gains))
+                #    offsets = list(reversed(offsets))
                 for chip in self.CHIPS:
                     #logging.debug("Updating DAC value [fem %d chip %d]", fem, chip)
                     #logging.debug("Gain [%s]", thresh.gains[chip - 1])
                     #logging.debug("Offset [%s]", thresh.offsets[chip - 1])
-                    val = int(round(thresh.gains[chip - 1] * self._energy_threshold + thresh.offsets[chip - 1]))
+                    val = int(round(gains[chip - 1] * self._energy_threshold + offsets[chip - 1]))
                     #logging.debug("Updating DAC value [fem %d chip %d] to %s", fem, chip, val)
                     dac.update_dac_value(fem, chip, 'Threshold1', val)
         return dac
@@ -163,6 +178,7 @@ class DetectorCalibration(object):
         config = ExcaliburThresholdConfigParser(filename)
         logging.debug("Threshold file loaded gains   => %s", config.gains)
         logging.debug("                      offsets => %s", config.offsets)
+
         return config
 
     # def update_dacs_from_thresholds(self, fems):
