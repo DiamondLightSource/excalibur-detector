@@ -302,7 +302,7 @@ namespace FrameProcessor
         std::size_t output_offset = fem_idx * FEM_TOTAL_PIXELS;
 
         // Determine stripe orientation based on FEM index
-        bool stripe_is_even = ((fem_idx & 1) == 0);
+        bool stripe_is_even = ((fem_idx & 1) == 1);
         LOG4CXX_TRACE(logger_, "Active FEM idx=" << static_cast<int>(fem_idx)
             << ": stripe orientation is " << (stripe_is_even ? "even" : "odd"));
 
