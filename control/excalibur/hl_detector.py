@@ -61,11 +61,12 @@ class ParameterType(Enum):
 
 
 class Parameter(object):
-    def __init__(self, name, data_type=ParameterType.UNKNOWN, value=None, callback=None):
+    def __init__(self, name, data_type=ParameterType.UNKNOWN, value=None, callback=None, every_time=False):
         self._name = name
         self._datatype = data_type
         self._value = value
         self._callback = callback
+        self._every_time = every_time
 
     @property
     def value(self):
@@ -79,16 +80,22 @@ class Parameter(object):
         return return_value
 
     def set_value(self, value, callback=True):
+        changed = False
         if self._value != value:
             self._value = value
-            if self._callback is not None:
-                if callback:
+            changed = True
+        if self._callback is not None:
+            if callback:
+                if self._every_time:
+                    self._callback(self._name, self._value)
+                elif changed:
                     self._callback(self._name, self._value)
 
 
 class EnumParameter(Parameter):
-    def __init__(self, name, value=None, allowed_values=None, callback=None):
-        super(EnumParameter, self).__init__(name, data_type=ParameterType.ENUM, value=value, callback=callback)
+    def __init__(self, name, value=None, allowed_values=None, callback=None, every_time=False):
+        super(EnumParameter, self).__init__(name, data_type=ParameterType.ENUM, value=value,
+                                            callback=callback, every_time=every_time)
         self._allowed_values = allowed_values
 
     def get(self):
@@ -104,8 +111,9 @@ class EnumParameter(Parameter):
 
 
 class IntegerParameter(Parameter):
-    def __init__(self, name, value=None, limits=None, callback=None):
-        super(IntegerParameter, self).__init__(name, data_type=ParameterType.INT, value=value, callback=callback)
+    def __init__(self, name, value=None, limits=None, callback=None, every_time=False):
+        super(IntegerParameter, self).__init__(name, data_type=ParameterType.INT, value=value,
+                                               callback=callback, every_time=every_time)
         self._limits = limits
 
     def get(self):
@@ -117,8 +125,9 @@ class IntegerParameter(Parameter):
 
 
 class DoubleParameter(Parameter):
-    def __init__(self, name, value=None, limits=None, callback=None):
-        super(DoubleParameter, self).__init__(name, data_type=ParameterType.DOUBLE, value=value, callback=callback)
+    def __init__(self, name, value=None, limits=None, callback=None, every_time=False):
+        super(DoubleParameter, self).__init__(name, data_type=ParameterType.DOUBLE, value=value,
+                                              callback=callback, every_time=every_time)
         self._limits = limits
 
     def get(self):
@@ -130,8 +139,9 @@ class DoubleParameter(Parameter):
 
 
 class StringParameter(Parameter):
-    def __init__(self, name, value=None, callback=None):
-        super(StringParameter, self).__init__(name, data_type=ParameterType.STRING, value=value, callback=callback)
+    def __init__(self, name, value=None, callback=None, every_time=False):
+        super(StringParameter, self).__init__(name, data_type=ParameterType.STRING, value=value,
+                                              callback=callback, every_time=every_time)
 
 
 class HLExcaliburDetector(ExcaliburDetector):
