@@ -1291,14 +1291,22 @@ class HLExcaliburDetector(ExcaliburDetector):
             logging.error('Start acquisition completed')
 
     def hl_initialise(self):
-        logging.error("Initialising front end")
-        self.hl_frontend_init()
+        logging.error("Initialising front end...")
+        for fem in self._fems:
+            self.set_calibration_status(fem, 0)
+        logging.error("Sending a fe_vdd_enable param set to 1")
+        params = []
+        params.append(ExcaliburParameter('fe_vdd_enable', [[1]], fem=self.powercard_fem_idx+1))
+        self.hl_write_params(params)
         logging.error("Sending the fe_init command")
-        self.do_command('fe_init', params=None)
-        return self.wait_for_completion()
+        self.hl_do_command('fe_init')
+        logging.error("Sending a stop acquisition")
+        return self.hl_stop_acquisition()
 
     def hl_lv_enable(self, name, lv_enable):
         logging.error("Setting lv_enable to %d", lv_enable)
+        for fem in self._fems:
+            self.set_calibration_status(fem, 0)
         if self.powercard_fem_idx < 0:
             self.set_error("Unable to set LV enable [] as server reports no power card".format(name))
             return
@@ -1306,13 +1314,7 @@ class HLExcaliburDetector(ExcaliburDetector):
         params.append(ExcaliburParameter('fe_lv_enable', [[lv_enable]], fem=self.powercard_fem_idx+1))
         self.hl_write_params(params)
         if lv_enable == 1:
-            self.hl_frontend_init()
-
-    def hl_frontend_init(self):
-        logging.error("Sending a fe_vdd_enable param set to 1")
-        params = []
-        params.append(ExcaliburParameter('fe_vdd_enable', [[1]], fem=self.powercard_fem_idx+1))
-        self.hl_write_params(params)
+            self.hl_initialise()
 
     def hl_hv_enable(self, name, hv_enable):
         logging.error("Setting hv_enable to %d", hv_enable)
