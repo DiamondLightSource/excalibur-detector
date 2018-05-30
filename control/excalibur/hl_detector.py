@@ -218,8 +218,8 @@ class HLExcaliburDetector(ExcaliburDetector):
             'config/energy_threshold': DoubleParameter('energy_threshold', 0.0, callback=self.update_calibration),
             'config/udp_file': StringParameter('udp_file', '', callback=self.hl_load_udp_config),
             'config/hv_bias': DoubleParameter('hv_bias', 0.0, callback=self.hl_hv_bias_set),
-            'config/lv_enable': IntegerParameter('lv_enable', 0, callback=self.hl_lv_enable),
-            'config/hv_enable': IntegerParameter('hv_enable', 0, callback=self.hl_hv_enable),
+            'config/lv_enable': IntegerParameter('lv_enable', 0, callback=self.hl_lv_enable, every_time=True),
+            'config/hv_enable': IntegerParameter('hv_enable', 0, callback=self.hl_hv_enable, every_time=True),
             'config/test_dac_file': StringParameter('test_dac_file', ''),
             'config/test_mask_file': StringParameter('test_mask_file', ''),
 
