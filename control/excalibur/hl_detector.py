@@ -232,6 +232,7 @@ class HLExcaliburDetector(ExcaliburDetector):
         self._status = {
             'calibration': [0] * len(self._fems),
             'lv_enabled': 0,
+            'hv_enabled': 0,
             'sensor': {
                 'width': ExcaliburDefinitions.X_PIXELS_PER_CHIP * ExcaliburDefinitions.X_CHIPS_PER_FEM,
                 'height': ExcaliburDefinitions.Y_PIXELS_PER_CHIP *
@@ -904,9 +905,9 @@ class HLExcaliburDetector(ExcaliburDetector):
                                 hv_enabled = 0
                                 # Greater than 100.0 Volts means the HV is enabled
                                 #logging.error('Value of pwr_bias_vmon: %s', status['pwr_bias_vmon'])
-                                if status['pwr_bias_vmon'][0] > 100.0:
+                                if status['pwr_bias_vmon'][0] > self._param['config/hv_bias'].value - 5.0:
                                     hv_enabled = 1
-                                self._param['config/hv_enable'].set_value(hv_enabled, callback=False)
+                                self._status['hv_enabled'] = hv_enabled
 
                                 for param in powercard_params:
                                     if param in status:
