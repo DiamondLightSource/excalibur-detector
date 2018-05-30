@@ -1150,8 +1150,8 @@ class HLExcaliburDetector(ExcaliburDetector):
         with self._comms_lock:
             self.clear_error()
             if self._hw_frames_acquired > 0:
-                self.set_error('Detector reports non zero frames, reset detector')
-                return
+                # Counters have not cleared yet, send a stop acquisition before restarting
+                self.hl_stop_acquisition()
 
             # Set the acquiring flag
             self._acquiring = True
