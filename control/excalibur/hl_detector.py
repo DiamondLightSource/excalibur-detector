@@ -306,6 +306,8 @@ class HLExcaliburDetector(ExcaliburDetector):
         self._slow_update_time = datetime.now()
         self._frame_start_count = 0
         self._frame_count_time = None
+        self._calibration_required = True
+        self._moly_humidity_counter = 0
         # Perform a slow read
         self.slow_read()
         self._status_thread = threading.Thread(target=self.status_loop)
@@ -597,6 +599,12 @@ class HLExcaliburDetector(ExcaliburDetector):
         # Fast poll is currently set to 0.2 s
         # Slow poll is currently set to 5.0 s
         while self._executing_updates:
+            if self._calibration_required:
+                try:
+                    self._calibration_required = False
+                    self.update_calibration('lv_enabled', '1')
+                except:
+                    pass
             if (datetime.now() - self._slow_update_time).seconds > 10.0:
                 self._slow_update_time = datetime.now()
                 self.slow_read()
@@ -962,6 +970,14 @@ class HLExcaliburDetector(ExcaliburDetector):
                                             else:
                                                 val = status[param]
                                         self._status[param] = val
+                                # Catch when the lv has been enabled and attempt to re-send calibration
+                                # Also do not return the humidity right away as it has a settling time
+                                if self._status['lv_enabled'] == 0 and lv_enabled == 1:
+                                    self._calibration_required = True
+                                    self._moly_humidity_counter = 2
+                                if self._moly_humidity_counter > 0:
+                                    self._status['moly_humidity'] = self._default_status
+                                    self._moly_humidity_counter -= 1
                                 self._status['lv_enabled'] = lv_enabled
                         else:
                             logging.info("Command has failed")
