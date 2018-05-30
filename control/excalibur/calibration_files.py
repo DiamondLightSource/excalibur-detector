@@ -50,7 +50,7 @@ class DetectorCalibration(object):
         #if fem & 1 != 1:
         #    dac = list(reversed(dac))
         if fem in self._thresh0:
-            logging.error("** FEM Number: {}".format(fem))
+            #logging.error("** FEM Number: {}".format(fem))
             thresh = self._thresh0[fem]
             if thresh.gains is not None and thresh.offsets is not None:
                 gains = thresh.gains
@@ -58,8 +58,8 @@ class DetectorCalibration(object):
                 #if fem & 1 != 1:
                 #    gains = list(reversed(gains))
                 #    offsets = list(reversed(offsets))
-                logging.error(gains)
-                logging.error(offsets)
+                #logging.error(gains)
+                #logging.error(offsets)
                 for chip in self.CHIPS:
                     #logging.debug("Updating DAC value [fem %d chip %d]", fem, chip)
                     #logging.debug("Gain [%s]", thresh.gains[chip - 1])
