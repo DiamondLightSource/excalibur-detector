@@ -19,6 +19,7 @@ else:
 from excalibur.detector import ExcaliburDetector, ExcaliburDetectorError
 from excalibur.calibration_files import DetectorCalibration
 from excalibur.definitions import ExcaliburDefinitions
+from excalibur.efuse_id_parser import ExcaliburEfuseIDParser
 from enum import Enum
 from collections import OrderedDict
 
@@ -280,7 +281,8 @@ class HLExcaliburDetector(ExcaliburDetector):
             'efuseid_c4': [0] * len(self._fems),
             'efuseid_c5': [0] * len(self._fems),
             'efuseid_c6': [0] * len(self._fems),
-            'efuseid_c7': [0] * len(self._fems) 
+            'efuseid_c7': [0] * len(self._fems),
+            'efuse_match': [0] * len(self._fems)
         }
         logging.error("Status: %s", self._status)
         self._calibration_status = {
@@ -1352,15 +1354,24 @@ class HLExcaliburDetector(ExcaliburDetector):
 
     def hl_efuseid_read(self):
         response_status = 0
-        efuse_dict = {'efuseid_c0': [],
-                      'efuseid_c1': [],
-                      'efuseid_c2': [],
-                      'efuseid_c3': [],
-                      'efuseid_c4': [],
-                      'efuseid_c5': [],
-                      'efuseid_c6': [],
-                      'efuseid_c7': []}
+        efuse_dict = {'efuseid_c0':  [],
+                      'efuseid_c1':  [],
+                      'efuseid_c2':  [],
+                      'efuseid_c3':  [],
+                      'efuseid_c4':  [],
+                      'efuseid_c5':  [],
+                      'efuseid_c6':  [],
+                      'efuseid_c7':  [],
+                      'efuse_match': []}
+
         try:
+            # First read out the efuse values from the files
+            efid_parser = ExcaliburEfuseIDParser()
+            recorded_efuses = {}
+            for fem in self._fems:
+                filename = self._param['config/cal_file_root'].value + "/fem" + str(fem) + '/efuseIDs'
+                efid_parser.parse_file(filename)
+                recorded_efuses[fem] = efid_parser.efuse_ids
             fe_params = ['efuseid']
             read_params = ExcaliburReadParameter(fe_params)
             self.read_fe_param(read_params)
@@ -1372,15 +1383,35 @@ class HLExcaliburDetector(ExcaliburDetector):
                         logging.info("Command has succeeded")
                         status = super(HLExcaliburDetector, self).get('command')['command']['fe_param_read']['value']
                         #logging.error("Status: %s", status)
+                        fem = 1
                         for efuse in status['efuseid']:
+                            id_match = 1
                             efuse_dict['efuseid_c0'].append(efuse[0])
+                            if recorded_efuses[fem][1] != efuse[0]:
+                                id_match = 0
                             efuse_dict['efuseid_c1'].append(efuse[1])
+                            if recorded_efuses[fem][2] != efuse[1]:
+                                id_match = 0
                             efuse_dict['efuseid_c2'].append(efuse[2])
+                            if recorded_efuses[fem][3] != efuse[2]:
+                                id_match = 0
                             efuse_dict['efuseid_c3'].append(efuse[3])
+                            if recorded_efuses[fem][4] != efuse[3]:
+                                id_match = 0
                             efuse_dict['efuseid_c4'].append(efuse[4])
+                            if recorded_efuses[fem][5] != efuse[4]:
+                                id_match = 0
                             efuse_dict['efuseid_c5'].append(efuse[5])
+                            if recorded_efuses[fem][6] != efuse[5]:
+                                id_match = 0
                             efuse_dict['efuseid_c6'].append(efuse[6])
+                            if recorded_efuses[fem][7] != efuse[6]:
+                                id_match = 0
                             efuse_dict['efuseid_c7'].append(efuse[7])
+                            if recorded_efuses[fem][8] != efuse[7]:
+                                id_match = 0
+                            efuse_dict['efuse_match'].append(id_match)
+                            fem += 1
                     break
         except:
             # Unable to get the efuse IDs so set the dict up with None vales
