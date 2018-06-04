@@ -1368,12 +1368,13 @@ class HLExcaliburDetector(ExcaliburDetector):
 
         try:
             # First read out the efuse values from the files
-            efid_parser = ExcaliburEfuseIDParser()
             recorded_efuses = {}
             for fem in self._fems:
+                efid_parser = ExcaliburEfuseIDParser()
                 filename = self._param['config/cal_file_root'].value + "/fem" + str(fem) + '/efuseIDs'
                 efid_parser.parse_file(filename)
                 recorded_efuses[fem] = efid_parser.efuse_ids
+            logging.error("EfuseIDs read from file: %s", recorded_efuses)
             fe_params = ['efuseid']
             read_params = ExcaliburReadParameter(fe_params)
             self.read_fe_param(read_params)
