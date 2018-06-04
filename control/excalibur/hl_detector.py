@@ -478,10 +478,10 @@ class HLExcaliburDetector(ExcaliburDetector):
         dac_params = []
 
         for (dac_name, dac_param) in self._cb.get_dac(1).dac_api_params():
-            logging.error("%s  %s", dac_name, dac_param)
+            logging.debug("%s  %s", dac_name, dac_param)
             dac_vals = []
             for fem in self._fems:
-                logging.error("Downloading FEM # {}".format(fem))
+                logging.debug("Downloading FEM # {}".format(fem))
                 #fem_vals = [self._cb.get_dac(fem).dacs(fem, chip_id)[dac_name] for chip_id in self.get_chip_ids(fem)]
                 fem_vals = [self._cb.get_dac(fem).dacs(fem, chip_id)[dac_name] for chip_id in ExcaliburDefinitions.FEM_DEFAULT_CHIP_IDS]
                 dac_vals.append(fem_vals)
