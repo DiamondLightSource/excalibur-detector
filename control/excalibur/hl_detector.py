@@ -408,7 +408,6 @@ class HLExcaliburDetector(ExcaliburDetector):
         logging.error('UDP configuration complete')
 
     def shutdown(self):
-        self.hl_lv_enable('lv_enable', 0)
         self._executing_updates = False
         self.queue_command(None)
 
@@ -601,6 +600,7 @@ class HLExcaliburDetector(ExcaliburDetector):
         # Status loop has two polling rates, fast and slow
         # Fast poll is currently set to 0.2 s
         # Slow poll is currently set to 5.0 s
+        first_power_read = True
         while self._executing_updates:
             if self._calibration_required:
                 try:
@@ -614,6 +614,14 @@ class HLExcaliburDetector(ExcaliburDetector):
             if (datetime.now() - self._medium_update_time).seconds > 10.0:
                 self._medium_update_time = datetime.now()
                 self.power_card_read()
+                if first_power_read:
+                    first_power_read = False
+                    # Switch off the hv
+                    self.hl_hv_enable('init', 0)
+                    # Toggle the lv
+                    self.hl_lv_enable('init', 1)
+                    self.hl_lv_enable('init', 0)
+
             if (datetime.now() - self._fast_update_time).microseconds > 100000:
                 self._fast_update_time = datetime.now()
                 self.fast_read()
@@ -977,7 +985,7 @@ class HLExcaliburDetector(ExcaliburDetector):
                                 # Also do not return the humidity right away as it has a settling time
                                 if self._status['lv_enabled'] == 0 and lv_enabled == 1:
                                     self._calibration_required = True
-                                    self._moly_humidity_counter = 2
+                                    self._moly_humidity_counter = 3
                                 if self._moly_humidity_counter > 0:
                                     self._status['moly_humidity'] = self._default_status
                                     self._moly_humidity_counter -= 1
