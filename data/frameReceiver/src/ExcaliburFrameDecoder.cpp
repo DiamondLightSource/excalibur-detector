@@ -42,6 +42,7 @@ ExcaliburFrameDecoder::ExcaliburFrameDecoder() :
     num_active_fems_(0),
     dropping_frame_data_(false),
     packets_ignored_(0),
+    packets_lost_(0),
     has_subframe_trailer_(true)
 {
 
@@ -152,8 +153,13 @@ void ExcaliburFrameDecoder::init(LoggerPtr& logger, OdinData::IpcMessage& config
     LOG4CXX_INFO(packet_logger_, "PktHdr: |-------------- |---- |----  |---------- |----------");
   }
 
-  // Reset the scratched packet counter
+  // Reset the scratched and lost packet counters
   packets_ignored_ = 0;
+  packets_lost_ = 0 ;
+  for (int fem = 0; fem < Excalibur::max_num_fems; fem++)
+  {
+    fem_packets_lost_[fem] = 0;
+  }
 }
 
 void ExcaliburFrameDecoder::request_configuration(const std::string param_prefix,
@@ -576,10 +582,28 @@ void ExcaliburFrameDecoder::monitor_buffers(void)
 
     if (elapsed_ms(frame_header->frame_start_time, current_time) > frame_timeout_ms_)
     {
+
+      const std::size_t num_fem_frame_packets =
+          Excalibur::num_fem_frame_packets(asic_counter_bit_depth_);
+
+      // Calculate packets lost on this frame and add to total
+      uint32_t packets_lost = (num_fem_frame_packets * num_active_fems_) -
+          frame_header->total_packets_received;
+      packets_lost_ += packets_lost;
+      if (packets_lost)
+      {
+        for (ExcaliburDecoderFemMap::iterator iter = fem_port_map_.begin();
+            iter != fem_port_map_.end(); ++iter)
+        {
+          fem_packets_lost_[(iter->second).fem_idx_] += num_fem_frame_packets -
+              (frame_header->fem_rx_state[(iter->second).buf_idx_].packets_received);
+        }
+      }
+
       LOG4CXX_DEBUG_LEVEL(1, logger_, "Frame " << frame_num << " in buffer " << buffer_id
           << " addr 0x" << std::hex
           << buffer_addr << std::dec << " timed out with " << frame_header->total_packets_received
-          << " packets received");
+          << " packets received, " << packets_lost << " packets lost");
 
       frame_header->frame_state = FrameReceiveStateTimedout;
       ready_callback_(buffer_id, frame_num);
@@ -599,8 +623,36 @@ void ExcaliburFrameDecoder::monitor_buffers(void)
   frames_timedout_ += frames_timedout;
 
   LOG4CXX_DEBUG_LEVEL(3, logger_,  get_num_mapped_buffers() << " frame buffers in use, "
-      << get_num_empty_buffers()
-      << " empty buffers available, " << frames_timedout_ << " incomplete frames timed out");
+      << get_num_empty_buffers() << " empty buffers available, "
+      << frames_timedout_ << " incomplete frames timed out, "
+      << packets_lost_ << " packets lost"
+  );
+
+}
+
+//! Get the current status of the frame decoder.
+//!
+//! This method populates the IpcMessage passed by reference as an argument with decoder-specific
+//! status information, e.g. packet loss by source.
+//!
+//! \param[in] param_prefix - path to be prefixed to each status parameter name
+//! \param[in] status_msg - reference to IpcMesssage to be populated with parameters
+//!
+void ExcaliburFrameDecoder::get_status(const std::string param_prefix,
+    OdinData::IpcMessage& status_msg)
+{
+  status_msg.set_param(param_prefix + "name", std::string("ExcaliburFrameDecoder"));
+  status_msg.set_param(param_prefix + "packets_lost", packets_lost_);
+
+  // Workaround for lack of array setters in IpcMessage
+  rapidjson::Value fem_packets_lost_array(rapidjson::kArrayType);
+  rapidjson::Value::AllocatorType allocator;
+
+  for (int fem = 0; fem < Excalibur::max_num_fems; fem++)
+  {
+    fem_packets_lost_array.PushBack(fem_packets_lost_[fem], allocator);
+  }
+  status_msg.set_param(param_prefix + "fem_packets_lost", fem_packets_lost_array);
 
 }
 

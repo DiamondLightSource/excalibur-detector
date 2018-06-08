@@ -61,6 +61,7 @@ namespace FrameReceiver
     FrameDecoder::FrameReceiveState process_packet (size_t bytes_received);
 
     void monitor_buffers(void);
+    void get_status(const std::string param_prefix, OdinData::IpcMessage& status_msg);
 
     void* get_packet_header_buffer(void);
 
@@ -92,7 +93,10 @@ namespace FrameReceiver
     std::size_t num_active_fems_;
 
     bool dropping_frame_data_;
-    std::size_t packets_ignored_;
+    uint32_t packets_ignored_;
+    uint32_t packets_lost_;
+    uint32_t fem_packets_lost_[Excalibur::max_num_fems];
+
     bool has_subframe_trailer_;
 
     static const std::string asic_bit_depth_str_[Excalibur::num_bit_depths];
