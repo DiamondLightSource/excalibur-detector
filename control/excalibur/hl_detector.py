@@ -540,20 +540,22 @@ class HLExcaliburDetector(ExcaliburDetector):
         for fem in self._fems:
             fem_vals = [self._cb.get_mask(fem)[chip-1].pixels for chip in chip_ids]
             mpx3_pixel_masks.append(fem_vals)
-        #pixel_params.append(ExcaliburParameter('mpx3_pixel_mask', [[mpx3_pixel_mask]],
-        #                                       fem=self._fems, chip=chip_ids))
-        #pixel_params.append(ExcaliburParameter('mpx3_pixel_discl', [[mpx3_pixel_discl]],
-        #                                       fem=self._fems, chip=chip_ids))
-        #pixel_params.append(ExcaliburParameter('mpx3_pixel_disch', [[mpx3_pixel_disch]],
-        #                                       fem=self._fems, chip=chip_ids))
+        pixel_params.append(ExcaliburParameter('mpx3_pixel_mask', [[mpx3_pixel_mask]],
+                                               fem=self._fems, chip=chip_ids))
+        pixel_params.append(ExcaliburParameter('mpx3_pixel_discl', [[mpx3_pixel_discl]],
+                                               fem=self._fems, chip=chip_ids))
+        pixel_params.append(ExcaliburParameter('mpx3_pixel_disch', [[mpx3_pixel_disch]],
+                                               fem=self._fems, chip=chip_ids))
         pixel_params.append(ExcaliburParameter('mpx3_pixel_test', mpx3_pixel_masks,
                                                fem=self._fems, chip=chip_ids))
 
         # Write all the parameters to system
-        self.hl_write_params(pixel_params)
+        with self._comms_lock:
+            self.hl_write_params(pixel_params)
+            time.sleep(1.0)
 
-        # Send the command to load the pixel configuration
-        self.hl_do_command('load_pixelconfig')
+            # Send the command to load the pixel configuration
+            self.hl_do_command('load_pixelconfig')
 
         for fem in self._fems:
             self.set_calibration_status(fem, 1, 'mask')
@@ -562,6 +564,9 @@ class HLExcaliburDetector(ExcaliburDetector):
         #chip_ids = ExcaliburDefinitions.FEM_DEFAULT_CHIP_IDS
         pixel_params = []
         mpx3_pixel_masks = []
+        # Write all the parameters to system
+        logging.error("Writing pixel parameters to hardware...")
+
         logging.error("Generating mpx3_pixel_mask...")
         for fem in self._fems:
             chip_ids = self.get_chip_ids(1)
@@ -570,6 +575,19 @@ class HLExcaliburDetector(ExcaliburDetector):
         pixel_params.append(ExcaliburParameter('mpx3_pixel_mask', mpx3_pixel_masks,
                                                fem=self._fems, chip=ExcaliburDefinitions.FEM_DEFAULT_CHIP_IDS))
 
+        with self._comms_lock:
+            self.hl_write_params(pixel_params)
+
+            time.sleep(1.0)
+
+            # Send the command to load the pixel configuration
+            logging.error("Sending the load_pixelconfig command...")
+            self.hl_do_command('load_pixelconfig')
+
+        for fem in self._fems:
+            self.set_calibration_status(fem, 1, 'mask')
+
+        pixel_params = []
         mpx3_pixel_discl = []
         logging.error("Generating mpx3_pixel_discl...")
         for fem in self._fems:
@@ -579,6 +597,19 @@ class HLExcaliburDetector(ExcaliburDetector):
         pixel_params.append(ExcaliburParameter('mpx3_pixel_discl', mpx3_pixel_discl,
                                                fem=self._fems, chip=ExcaliburDefinitions.FEM_DEFAULT_CHIP_IDS))
 
+        with self._comms_lock:
+            self.hl_write_params(pixel_params)
+
+            time.sleep(1.0)
+
+            # Send the command to load the pixel configuration
+            logging.error("Sending the load_pixelconfig command...")
+            self.hl_do_command('load_pixelconfig')
+
+        for fem in self._fems:
+            self.set_calibration_status(fem, 1, 'discl')
+
+        pixel_params = []
         mpx3_pixel_disch = []
         logging.error("Generating mpx3_pixel_disch...")
         for fem in self._fems:
@@ -588,26 +619,30 @@ class HLExcaliburDetector(ExcaliburDetector):
         pixel_params.append(ExcaliburParameter('mpx3_pixel_disch', mpx3_pixel_disch,
                                                fem=self._fems, chip=ExcaliburDefinitions.FEM_DEFAULT_CHIP_IDS))
 
-        # Write all the parameters to system
-        logging.error("Writing pixel parameters to hardware...")
-        self.hl_write_params(pixel_params)
+        with self._comms_lock:
+            self.hl_write_params(pixel_params)
         
-        #time.sleep(5.0)
+            time.sleep(1.0)
 
-        # Send the command to load the pixel configuration
-        logging.error("Sending the load_pixelconfig command...")
-        self.hl_do_command('load_pixelconfig')
+            # Send the command to load the pixel configuration
+            logging.error("Sending the load_pixelconfig command...")
+            self.hl_do_command('load_pixelconfig')
 
         for fem in self._fems:
-            self.set_calibration_status(fem, 1, 'mask')
-            self.set_calibration_status(fem, 1, 'discl')
             self.set_calibration_status(fem, 1, 'disch')
 
     def status_loop(self):
         # Status loop has two polling rates, fast and slow
         # Fast poll is currently set to 0.2 s
         # Slow poll is currently set to 5.0 s
-        first_power_read = True
+        if self._lv_toggle_required:
+            # Short pause to ensure the power card ID has been set from the low level detector
+            time.sleep(1.0)
+            # We only ever toggle the lv once if required
+            self._lv_toggle_required = False
+            # Perform the toggling of the command bit for lv
+            self.hl_toggle_lv()
+
         while self._executing_updates:
             if self._calibration_required:
                 try:
@@ -621,14 +656,6 @@ class HLExcaliburDetector(ExcaliburDetector):
             if (datetime.now() - self._medium_update_time).seconds > 10.0:
                 self._medium_update_time = datetime.now()
                 self.power_card_read()
-                if first_power_read:
-                    first_power_read = False
-                    # Switch off the hv
-                    self.hl_hv_enable('init', 0)
-                    # Toggle the lv
-                    self.hl_lv_enable('init', 1)
-                    self.hl_lv_enable('init', 0)
-
             if (datetime.now() - self._fast_update_time).microseconds > 100000:
                 self._fast_update_time = datetime.now()
                 self.fast_read()
@@ -1317,6 +1344,18 @@ class HLExcaliburDetector(ExcaliburDetector):
         self.hl_do_command('fe_init')
         logging.error("Sending a stop acquisition")
         return self.hl_stop_acquisition()
+
+    def hl_toggle_lv(self):
+        logging.error("Toggling lv_enable 1,0")
+        for fem in self._fems:
+            self.set_calibration_status(fem, 0)
+        if self.powercard_fem_idx < 0:
+            self.set_error("Unable to toggle LV enable as server reports no power card")
+            return
+        params = [ExcaliburParameter('fe_lv_enable', [[1]], fem=self.powercard_fem_idx+1)]
+        self.hl_write_params(params)
+        params = [ExcaliburParameter('fe_lv_enable', [[0]], fem=self.powercard_fem_idx+1)]
+        self.hl_write_params(params)
 
     def hl_lv_enable(self, name, lv_enable):
         logging.error("Setting lv_enable to %d", lv_enable)
