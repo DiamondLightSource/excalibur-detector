@@ -493,10 +493,11 @@ class HLExcaliburDetector(ExcaliburDetector):
 
         # Write all the parameters to system
         logging.error('Writing DAC configuration parameters to system {}'.format(str(dac_params)))
-        self.hl_write_params(dac_params)
-
-        # Now send the command to load the DAC configuration
-        self.hl_do_command('load_dacconfig')
+        with self._comms_lock:
+            self.hl_write_params(dac_params)
+            time.sleep(1.0)
+            # Now send the command to load the DAC configuration
+            self.hl_do_command('load_dacconfig')
 
         for fem in self._fems:
             self.set_calibration_status(fem, 1, 'dac')
@@ -514,10 +515,11 @@ class HLExcaliburDetector(ExcaliburDetector):
                                                fem=self._fems, chip=ExcaliburDefinitions.FEM_DEFAULT_CHIP_IDS))
 
         # Write all the parameters to system
-        self.hl_write_params(pixel_params)
-
-        # Send the command to load the pixel configuration
-        self.hl_do_command('load_pixelconfig')
+        with self._comms_lock:
+            self.hl_write_params(pixel_params)
+            time.sleep(1.0)
+            # Send the command to load the pixel configuration
+            self.hl_do_command('load_pixelconfig')
 
         for fem in self._fems:
             self.set_calibration_status(fem, 1, 'mask')
