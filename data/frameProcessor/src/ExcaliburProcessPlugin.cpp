@@ -129,8 +129,9 @@ namespace FrameProcessor
    *
    * \param[in] frame - Pointer to a Frame object.
    */
-  void ExcaliburProcessPlugin::process_lost_packets(boost::shared_ptr<Frame> frame)
+  boost::shared_ptr<Frame> ExcaliburProcessPlugin::process_lost_packets(boost::shared_ptr<Frame> frame)
   {
+    boost::shared_ptr<Frame> verified_frame = frame;
     const Excalibur::FrameHeader* hdr_ptr = static_cast<const Excalibur::FrameHeader*>(frame->get_data());
     Excalibur::AsicCounterBitDepth depth = static_cast<Excalibur::AsicCounterBitDepth>(asic_counter_depth_);
     LOG4CXX_DEBUG(logger_, "Processing lost packets for frame " << hdr_ptr->frame_number);
@@ -138,11 +139,52 @@ namespace FrameProcessor
                                                 << " out of a maximum "
                                                 << Excalibur::num_fem_frame_packets(depth) * hdr_ptr->num_active_fems);
     if (hdr_ptr->total_packets_received < (Excalibur::num_fem_frame_packets(depth) * hdr_ptr->num_active_fems)){
+      // We only need to perform this processing if there are any lost packets
+      size_t nbytes = frame->get_data_size();
+      void* verified_image = (void*)malloc(nbytes);
+      memcpy(verified_image, frame->get_data(), nbytes);
+
       int packets_lost = (Excalibur::num_fem_frame_packets(depth) * hdr_ptr->num_active_fems) - hdr_ptr->total_packets_received;
       LOG4CXX_ERROR(logger_, "Frame number " << hdr_ptr->frame_number << " has dropped " << packets_lost << " packets");
       packets_lost_ += packets_lost;
       LOG4CXX_ERROR(logger_, "Total packets lost since startup " << packets_lost_);
+      // Now loop over the packet state arrays to find out which packets are missing
+      // Loop over the number of fems, the number of subframes and the number of packets
+      int lost_packet_no = 0;
+      for (int fem_no = 0; fem_no < (int)hdr_ptr->num_active_fems; fem_no++){
+        for (int subframe = 0; subframe < Excalibur::num_subframes[depth]; subframe++){
+          // Get a pointer to the new memory block
+          char *packet_ptr = (char *)verified_image;
+          // Increment by the buffer header size
+          packet_ptr += sizeof(Excalibur::FrameHeader);
+          // Increment by the fem and subframe size
+          packet_ptr += (((fem_no * Excalibur::num_subframes[depth]) + subframe) * Excalibur::subframe_size(depth));
+          // First loop over all of the primary packets
+          int packet = 0;
+          for (packet = 0; packet < Excalibur::num_primary_packets[depth]; packet++){
+            if (hdr_ptr->fem_rx_state[fem_no].packet_state[subframe][packet] == 0){
+              LOG4CXX_ERROR(logger_, "Missing packet number " << lost_packet_no);
+              // Memset the packet to 0 currently
+              memset(packet_ptr, 0, Excalibur::primary_packet_size);
+            }
+            // Increment by the number of the lost packet x packet size
+            packet_ptr += Excalibur::primary_packet_size;
+            lost_packet_no++;
+          }
+          // Now check the tail packet
+          packet = Excalibur::num_primary_packets[depth];
+          if (hdr_ptr->fem_rx_state[fem_no].packet_state[subframe][packet] == 0){
+            LOG4CXX_ERROR(logger_, "Missing packet number " << lost_packet_no);
+            // Memset the packet to 0 currently
+            memset(packet_ptr, 0, Excalibur::tail_packet_size[depth]);
+          }
+          lost_packet_no++;
+        }
+      }
+      verified_frame = boost::shared_ptr<Frame>(new Frame("verified"));
+      verified_frame->copy_data(verified_image, nbytes);
     }
+    return verified_frame;
   }
 
   /**
@@ -156,7 +198,7 @@ namespace FrameProcessor
     LOG4CXX_TRACE(logger_, "Reordering frame.");
     LOG4CXX_TRACE(logger_, "Frame size: " << frame->get_data_size());
 
-    this->process_lost_packets(frame);
+    frame = this->process_lost_packets(frame);
 
     const Excalibur::FrameHeader* hdr_ptr =
         static_cast<const Excalibur::FrameHeader*>(frame->get_data());

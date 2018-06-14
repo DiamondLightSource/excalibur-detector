@@ -88,7 +88,7 @@ namespace FrameProcessor
     /** Configuration string representations for the bit depths */
     static const std::string BIT_DEPTH[4];
 
-    void process_lost_packets(boost::shared_ptr<Frame> frame);
+    boost::shared_ptr<Frame> process_lost_packets(boost::shared_ptr<Frame> frame);
     void process_frame(boost::shared_ptr<Frame> frame);
     void reorder_1bit_stripe(unsigned int* in, unsigned char* out, bool stripe_is_even);
     void reorder_6bit_stripe(unsigned char* in, unsigned char* out, bool stripe_is_even);
