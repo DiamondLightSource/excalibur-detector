@@ -152,7 +152,7 @@ merged_cmdclass.update({
     })
 
 setup(
-    name='excalibur',
+    name='excalibur-detector',
     version=versioneer.get_version(),
     cmdclass=merged_cmdclass,
     description='EXCALIBUR detector plugin for ODIN framework',
