@@ -161,13 +161,13 @@ setup(
     author_email='tim.nicholls@stfc.ac.uk',
     ext_modules=fem_ext_modules,
     packages=find_packages(),
-    install_requires=['odin==0.2'],
-    dependency_links=['https://github.com/odin-detector/odin-control/zipball/0.2#egg=odin-0.2'],
+    install_requires=['odin-control', 'odin-data', 'configparser'],
     extras_require={
       'test': ['nose', 'coverage', 'mock'],  
     },
     entry_points={
         'console_scripts': [
+            'excalibur_odin  = odin.server:main',
             'excalibur_test_app  = excalibur.client.test_app:main',
         ]
     },
