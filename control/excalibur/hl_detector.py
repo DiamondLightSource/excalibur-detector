@@ -76,7 +76,7 @@ class Parameter(object):
     def get(self):
         # Create the dictionary of information
         return_value = {'value': self._value,
-                        'type': self._datatype
+                        'type': self._datatype.value
                         }
         return return_value
 
@@ -751,20 +751,6 @@ class HLExcaliburDetector(ExcaliburDetector):
     def set(self, path, data):
         self.clear_error()
         try:
-#            if path in self._param:
-#                self._param[path].set_value(data)
-#            elif path == 'command/initialise':
-#                # Initialise the FEMs
-#                logging.error('Initialise has been called')
-#                self.hl_initialise()
-#            elif path == 'command/configure_dac':
-#                # Initialise the FEMs
-#                logging.error('Manual DAC calibration has been called')
-#                self.hl_manual_dac_calibration(data)
-#            elif path == 'command/configure_mask':
-#                # Initialise the FEMs
-#                logging.error('Manual mask file download has been called')
-#                self.hl_test_mask_calibration(data)
             if path == 'command/start_acquisition':
                 # Starting an acquisition!
                 logging.debug('Start acquisition has been called')
@@ -776,7 +762,6 @@ class HLExcaliburDetector(ExcaliburDetector):
                 self.hl_stop_acquisition()
             else:
                 self.queue_command({'path': path, 'data': data})
-#                super(HLExcaliburDetector, self).set(path, data)
         except Exception as ex:
             self.set_error(str(ex))
             raise ExcaliburDetectorError(str(ex))
@@ -950,8 +935,7 @@ class HLExcaliburDetector(ExcaliburDetector):
                             with self._param_lock:
                                 # Check for the current HV enabled state
                                 hv_enabled = 0
-                                # Greater than 100.0 Volts means the HV is enabled
-                                #logging.error('Value of pwr_bias_vmon: %s', status['pwr_bias_vmon'])
+                                # Greater than hv_bias means the HV is enabled
                                 if status['pwr_bias_vmon'][0] > self._param['config/hv_bias'].value - 5.0:
                                     hv_enabled = 1
                                 self._status['hv_enabled'] = hv_enabled
@@ -1148,48 +1132,16 @@ class HLExcaliburDetector(ExcaliburDetector):
         scan_params.append(ExcaliburParameter('datareceiver_enable', [[0]]))
 
         # Write all the parameters to system
-        logging.error('Writing configuration parameters to system {}'.format(str(scan_params)))
+        logging.debug('Writing configuration parameters to system {}'.format(str(scan_params)))
         self.hl_write_params(scan_params)
 
         self._frame_start_count = 0
         self._frame_count_time = None
 
         # Send start acquisition command
-        logging.error('Sending start acquisition command')
+        logging.debug('Sending start acquisition command')
         self.hl_start_acquisition()
-        logging.error('Start acquisition completed')
-
-        # # If the nowait arguments wasn't given, monitor the scan state until all requested steps
-        # # have been completed
-        # if not self.args.no_wait:
-        #
-        #     wait_count = 0
-        #     scan_steps_completed = 0
-        #
-        #     while True:
-        #
-        #         (_, vals) = self.client.fe_param_read(['dac_scan_steps_complete', 'dac_scan_state'])
-        #         scan_steps_completed = min(vals['dac_scan_steps_complete'])
-        #         scan_completed = all(
-        #             [(scan_state == 0) for scan_state in vals['dac_scan_state']]
-        #         )
-        #
-        #         if scan_completed:
-        #             break
-        #
-        #         wait_count += 1
-        #         if wait_count % 5 == 0:
-        #             logging.info('  {:d} scan steps completed  ...'.format(scan_steps_completed))
-        #
-        #
-        #     (_, vals) = self.client.fe_param_read(['dac_scan_steps_complete'])
-        #     scan_steps_completed = min(vals['dac_scan_steps_complete'])
-        #
-        #     self.do_stop()
-        #
-        #     logging.info('DAC scan with {} steps completed'.format(scan_steps_completed))
-        # else:
-        #     logging.info('Acquisition of DAC scan started, not waiting for completion, will not send stop command')
+        logging.debug('Start acquisition completed')
 
     def do_acquisition(self):
         with self._comms_lock:
@@ -1422,64 +1374,66 @@ class HLExcaliburDetector(ExcaliburDetector):
                       'efuseid_c6':  [],
                       'efuseid_c7':  [],
                       'efuse_match': []}
+        if self._param['config/cal_file_root'].value != '':
+            try:
+                # First read out the efuse values from the files
+                recorded_efuses = {}
+                for fem in self._fems:
+                    efid_parser = ExcaliburEfuseIDParser()
+                    filename = self._param['config/cal_file_root'].value + "/fem" + str(fem) + '/efuseIDs'
+                    efid_parser.parse_file(filename)
+                    recorded_efuses[fem] = efid_parser.efuse_ids
+                logging.debug("EfuseIDs read from file: %s", recorded_efuses)
+                fe_params = ['efuseid']
+                read_params = ExcaliburReadParameter(fe_params)
+                self.read_fe_param(read_params)
 
-        try:
-            # First read out the efuse values from the files
-            recorded_efuses = {}
-            for fem in self._fems:
-                efid_parser = ExcaliburEfuseIDParser()
-                filename = self._param['config/cal_file_root'].value + "/fem" + str(fem) + '/efuseIDs'
-                efid_parser.parse_file(filename)
-                recorded_efuses[fem] = efid_parser.efuse_ids
-            logging.error("EfuseIDs read from file: %s", recorded_efuses)
-            fe_params = ['efuseid']
-            read_params = ExcaliburReadParameter(fe_params)
-            self.read_fe_param(read_params)
-
-            while True:
-                time.sleep(0.1)
-                if not self.command_pending():
-                    if self._get('command_succeeded'):
-                        logging.info("Command has succeeded")
-                        status = super(HLExcaliburDetector, self).get('command')['command']['fe_param_read']['value']
-                        #logging.error("Status: %s", status)
-                        fem = 1
-                        for efuse in status['efuseid']:
-                            id_match = 1
-                            efuse_dict['efuseid_c0'].append(efuse[0])
-                            if recorded_efuses[fem][1] != efuse[0]:
-                                id_match = 0
-                            efuse_dict['efuseid_c1'].append(efuse[1])
-                            if recorded_efuses[fem][2] != efuse[1]:
-                                id_match = 0
-                            efuse_dict['efuseid_c2'].append(efuse[2])
-                            if recorded_efuses[fem][3] != efuse[2]:
-                                id_match = 0
-                            efuse_dict['efuseid_c3'].append(efuse[3])
-                            if recorded_efuses[fem][4] != efuse[3]:
-                                id_match = 0
-                            efuse_dict['efuseid_c4'].append(efuse[4])
-                            if recorded_efuses[fem][5] != efuse[4]:
-                                id_match = 0
-                            efuse_dict['efuseid_c5'].append(efuse[5])
-                            if recorded_efuses[fem][6] != efuse[5]:
-                                id_match = 0
-                            efuse_dict['efuseid_c6'].append(efuse[6])
-                            if recorded_efuses[fem][7] != efuse[6]:
-                                id_match = 0
-                            efuse_dict['efuseid_c7'].append(efuse[7])
-                            if recorded_efuses[fem][8] != efuse[7]:
-                                id_match = 0
-                            efuse_dict['efuse_match'].append(id_match)
-                            fem += 1
-                    break
-        except:
-            # Unable to get the efuse IDs so set the dict up with None vales
+                while True:
+                    time.sleep(0.1)
+                    if not self.command_pending():
+                        if self._get('command_succeeded'):
+                            logging.info("Command has succeeded")
+                            status = super(HLExcaliburDetector, self).get('command')['command']['fe_param_read']['value']
+                            fem = 1
+                            for efuse in status['efuseid']:
+                                id_match = 1
+                                efuse_dict['efuseid_c0'].append(efuse[0])
+                                if recorded_efuses[fem][1] != efuse[0]:
+                                    id_match = 0
+                                efuse_dict['efuseid_c1'].append(efuse[1])
+                                if recorded_efuses[fem][2] != efuse[1]:
+                                    id_match = 0
+                                efuse_dict['efuseid_c2'].append(efuse[2])
+                                if recorded_efuses[fem][3] != efuse[2]:
+                                    id_match = 0
+                                efuse_dict['efuseid_c3'].append(efuse[3])
+                                if recorded_efuses[fem][4] != efuse[3]:
+                                    id_match = 0
+                                efuse_dict['efuseid_c4'].append(efuse[4])
+                                if recorded_efuses[fem][5] != efuse[4]:
+                                    id_match = 0
+                                efuse_dict['efuseid_c5'].append(efuse[5])
+                                if recorded_efuses[fem][6] != efuse[5]:
+                                    id_match = 0
+                                efuse_dict['efuseid_c6'].append(efuse[6])
+                                if recorded_efuses[fem][7] != efuse[6]:
+                                    id_match = 0
+                                efuse_dict['efuseid_c7'].append(efuse[7])
+                                if recorded_efuses[fem][8] != efuse[7]:
+                                    id_match = 0
+                                efuse_dict['efuse_match'].append(id_match)
+                                fem += 1
+                        break
+            except:
+                # Unable to get the efuse IDs so set the dict up with None vales
+                response_status = -1
+                for efuse_name in efuse_dict:
+                    efuse_dict[efuse_name].append(None)
+        else:
             response_status = -1
-            for efuse_name in efuse_dict:
-                efuse_dict[efuse_name].append(None)
-
-        logging.error("EFUSE: %s", efuse_dict)
+            logging.debug("No EFUSE ID root directory supplied")
+        
+        logging.debug("EFUSE: %s", efuse_dict)
         return response_status, efuse_dict
 
     def get_fem_error_state(self):
