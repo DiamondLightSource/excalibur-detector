@@ -154,7 +154,7 @@ class HLExcaliburDetector(ExcaliburDetector):
         super(HLExcaliburDetector, self).__init__(fem_connections)
 
         self._fems = range(1, len(fem_connections)+1)
-        logging.error("Fem conection IDs: %s", self._fems)
+        logging.debug("Fem conection IDs: %s", self._fems)
 
         self._default_status = []
         for fem in self._fems:
@@ -284,7 +284,7 @@ class HLExcaliburDetector(ExcaliburDetector):
             'efuseid_c7': [0] * len(self._fems),
             'efuse_match': [0] * len(self._fems)
         }
-        logging.error("Status: %s", self._status)
+        logging.debug("Status: %s", self._status)
         self._calibration_status = {
             'dac': [0] * len(self._fems),
             'discl': [0] * len(self._fems),
@@ -327,7 +327,7 @@ class HLExcaliburDetector(ExcaliburDetector):
         self._command_thread.start()
 
     def hl_load_udp_config(self, name, filename):
-        logging.error("Loading UDP configuration [{}] from file {}".format(name, filename))
+        logging.debug("Loading UDP configuration [{}] from file {}".format(name, filename))
 
         try:
             with open(filename) as config_file:
@@ -352,7 +352,7 @@ class HLExcaliburDetector(ExcaliburDetector):
             source_data_port.append(fem['port'])
             dest_data_port_offset.append(fem['dest_port_offset']
                                          )
-            logging.error('    FEM  {:d} : ip {:16s} mac: {:s} port: {:5d} offset: {:d}'.format(
+            logging.debug('    FEM  {:d} : ip {:16s} mac: {:s} port: {:5d} offset: {:d}'.format(
                 idx, source_data_addr[-1], source_data_mac[-1],
                 source_data_port[-1], dest_data_port_offset[-1]
             ))
@@ -366,7 +366,7 @@ class HLExcaliburDetector(ExcaliburDetector):
             dest_data_mac.append(node['mac'])
             dest_data_port.append(int(node['port']))
 
-            logging.error('    Node {:d} : ip {:16s} mac: {:s} port: {:5d}'.format(
+            logging.debug('    Node {:d} : ip {:16s} mac: {:s} port: {:5d}'.format(
                 idx, dest_data_addr[-1], dest_data_mac[-1],
                 dest_data_port[-1]
             ))
@@ -408,9 +408,9 @@ class HLExcaliburDetector(ExcaliburDetector):
         udp_params.append(ExcaliburParameter('farm_mode_num_dests', [[farm_mode_num_dests]]))
 
         # Write all the parameters to system
-        logging.error('Writing UDP configuration parameters to system')
+        logging.debug('Writing UDP configuration parameters to system')
         self.hl_write_params(udp_params)
-        logging.error('UDP configuration complete')
+        logging.debug('UDP configuration complete')
 
     def shutdown(self):
         self._executing_updates = False
@@ -423,7 +423,7 @@ class HLExcaliburDetector(ExcaliburDetector):
             for area in ['dac', 'discl', 'disch', 'mask', 'thresh']:
                 self._calibration_status[area][fem - 1] = status
 
-        logging.error("Calibration: %s", self._calibration_status)
+        logging.debug("Calibration: %s", self._calibration_status)
         bit = 0
         calibration_bitmask = 0
         for area in ['dac', 'discl', 'disch', 'mask', 'thresh']:
@@ -435,40 +435,43 @@ class HLExcaliburDetector(ExcaliburDetector):
         self._status['calibration'][fem-1] = calibration_bitmask
 
     def hl_manual_dac_calibration(self, filename):
-        logging.error("** Manual DAC calibration requested: %s", filename)
+        logging.debug("Manual DAC calibration requested: %s", filename)
         for fem in self._fems:
             self.set_calibration_status(fem, 0, 'dac')
         self._cb.manual_dac_calibration(self._fems, filename)
         self.download_dac_calibration()
-        logging.error("Status: %s", self._status)
+        logging.debug("Status: %s", self._status)
 
     def hl_test_mask_calibration(self, filename):
-        logging.error("** Test mask file requested: %s", filename)
+        logging.debug("Test mask file requested: %s", filename)
         for fem in self._fems:
             self.set_calibration_status(fem, 0, 'mask')
         self._cb.manual_mask_calibration(self._fems, filename)
         self.download_test_masks()
-        logging.error("Status: %s", self._status)
+        logging.debug("Status: %s", self._status)
 
     def update_calibration(self, name, value):
         lv_enabled = 0
         with self._param_lock:
             lv_enabled = self._status['lv_enabled']
         if lv_enabled == 1: 
-            logging.error("Updating calibration due to %s updated to %s", name, value)
+            logging.debug("Updating calibration due to %s updated to %s", name, value)
             # Reset all calibration status values prior to loading a new calibration
             for fem in self._fems:
                 self.set_calibration_status(fem, 0)
-            self._cb.set_file_root(self._param['config/cal_file_root'].value)
-            self._cb.set_csm_spm_mode(self._param['config/csm_spm_mode'].index)
-            self._cb.set_gain_mode(self._param['config/gain_mode'].index)
-            self._cb.set_energy_threshold(self._param['config/energy_threshold'].value)
-            self._cb.load_calibration_files(self._fems)
-            self.download_dac_calibration()
-            self.download_pixel_calibration()
-            logging.error("Status: %s", self._status)
+            if self._param['config/cal_file_root'].value != '':
+                self._cb.set_file_root(self._param['config/cal_file_root'].value)
+                self._cb.set_csm_spm_mode(self._param['config/csm_spm_mode'].index)
+                self._cb.set_gain_mode(self._param['config/gain_mode'].index)
+                self._cb.set_energy_threshold(self._param['config/energy_threshold'].value)
+                self._cb.load_calibration_files(self._fems)
+                self.download_dac_calibration()
+                self.download_pixel_calibration()
+                logging.debug("Status: %s", self._status)
+            else:
+                logging.debug("No calibration root supplied")            
         else:
-            logging.error("Not updating calibration as LV is not enabled")            
+            logging.debug("Not updating calibration as LV is not enabled")            
 
     def get_chip_ids(self, fem_id):
         # Return either the default chip IDs or reversed chip IDs depending on the FEM
@@ -497,7 +500,7 @@ class HLExcaliburDetector(ExcaliburDetector):
                                              fem=self._fems, chip=ExcaliburDefinitions.FEM_DEFAULT_CHIP_IDS))
 
         # Write all the parameters to system
-        logging.error('Writing DAC configuration parameters to system {}'.format(str(dac_params)))
+        logging.debug('Writing DAC configuration parameters to system {}'.format(str(dac_params)))
         with self._comms_lock:
             self.hl_write_params(dac_params)
             time.sleep(1.0)
@@ -565,9 +568,9 @@ class HLExcaliburDetector(ExcaliburDetector):
         pixel_params = []
         mpx3_pixel_masks = []
         # Write all the parameters to system
-        logging.error("Writing pixel parameters to hardware...")
+        logging.debug("Writing pixel parameters to hardware...")
 
-        logging.error("Generating mpx3_pixel_mask...")
+        logging.debug("Generating mpx3_pixel_mask...")
         for fem in self._fems:
             chip_ids = self.get_chip_ids(1)
             fem_vals = [self._cb.get_mask(fem)[chip-1].pixels for chip in chip_ids]
@@ -581,7 +584,7 @@ class HLExcaliburDetector(ExcaliburDetector):
             time.sleep(1.0)
 
             # Send the command to load the pixel configuration
-            logging.error("Sending the load_pixelconfig command...")
+            logging.debug("Sending the load_pixelconfig command...")
             self.hl_do_command('load_pixelconfig')
 
         for fem in self._fems:
@@ -589,7 +592,7 @@ class HLExcaliburDetector(ExcaliburDetector):
 
         pixel_params = []
         mpx3_pixel_discl = []
-        logging.error("Generating mpx3_pixel_discl...")
+        logging.debug("Generating mpx3_pixel_discl...")
         for fem in self._fems:
             chip_ids = self.get_chip_ids(1)
             fem_vals = [self._cb.get_discL(fem)[chip-1].pixels for chip in chip_ids]
@@ -603,7 +606,7 @@ class HLExcaliburDetector(ExcaliburDetector):
             time.sleep(1.0)
 
             # Send the command to load the pixel configuration
-            logging.error("Sending the load_pixelconfig command...")
+            logging.debug("Sending the load_pixelconfig command...")
             self.hl_do_command('load_pixelconfig')
 
         for fem in self._fems:
@@ -611,7 +614,7 @@ class HLExcaliburDetector(ExcaliburDetector):
 
         pixel_params = []
         mpx3_pixel_disch = []
-        logging.error("Generating mpx3_pixel_disch...")
+        logging.debug("Generating mpx3_pixel_disch...")
         for fem in self._fems:
             chip_ids = self.get_chip_ids(1)
             fem_vals = [self._cb.get_discH(fem)[chip - 1].pixels for chip in chip_ids]
@@ -625,7 +628,7 @@ class HLExcaliburDetector(ExcaliburDetector):
             time.sleep(1.0)
 
             # Send the command to load the pixel configuration
-            logging.error("Sending the load_pixelconfig command...")
+            logging.debug("Sending the load_pixelconfig command...")
             self.hl_do_command('load_pixelconfig')
 
         for fem in self._fems:
@@ -692,19 +695,19 @@ class HLExcaliburDetector(ExcaliburDetector):
                 self._param[path].set_value(data)
             elif path == 'command/initialise':
                 # Initialise the FEMs
-                logging.error('Initialise has been called')
+                logging.debug('Initialise has been called')
                 self.hl_initialise()
             elif path == 'command/force_calibrate':
                 self.update_calibration('reload', 'manual')
             elif path == 'command/configure_dac':
                 # Configure the DAC
                 dac_file = self._param['config/test_dac_file'].value
-                logging.error('Manual DAC calibration has been called with file: %s', dac_file)
+                logging.debug('Manual DAC calibration has been called with file: %s', dac_file)
                 self.hl_manual_dac_calibration(dac_file)
             elif path == 'command/configure_mask':
                 # Apply a test maks
                 mask_file = self._param['config/test_mask_file'].value
-                logging.error('Manual mask file download has been called with file: %s', mask_file)
+                logging.debug('Manual mask file download has been called with file: %s', mask_file)
                 self.hl_test_mask_calibration(mask_file)
 #            elif path == 'command/start_acquisition':
 #                # Starting an acquisition!
@@ -1048,7 +1051,7 @@ class HLExcaliburDetector(ExcaliburDetector):
                     if self._status['lv_enabled'] == 1:
                         response_status, efuse_dict = self.hl_efuseid_read()
                         self._status.update(efuse_dict)
-                        logging.error("EFUSE return status: %s", response_status)
+                        logging.debug("EFUSE return status: %s", response_status)
                         if response_status == 0:
                             self._read_efuse_ids = True
 
@@ -1205,7 +1208,7 @@ class HLExcaliburDetector(ExcaliburDetector):
 
             # Check if the operational mode is DAC scan.
             if operation_mode.index == ExcaliburDefinitions.FEM_OPERATION_MODE_DACSCAN:
-                logging.error('DAC scan requested so entering DAC scan mode')
+                logging.debug('DAC scan requested so entering DAC scan mode')
                 self.hl_do_dac_scan()
                 return
 
@@ -1231,7 +1234,7 @@ class HLExcaliburDetector(ExcaliburDetector):
 
             num_frames = self._param['config/num_images'].value
             image_mode = self._param['config/image_mode'].value
-            logging.error('  Image mode set to {}'.format(image_mode))
+            logging.info('  Image mode set to {}'.format(image_mode))
             # Check for single image mode
             if image_mode == ExcaliburDefinitions.FEM_IMAGEMODE_NAMES[0]:
                 # Single image mode requested, set num frames to 1
@@ -1321,32 +1324,32 @@ class HLExcaliburDetector(ExcaliburDetector):
             # self.connect({'state': True})
 
             # Write all the parameters to system
-            logging.error('Writing configuration parameters to system {}'.format(str(write_params)))
+            logging.info('Writing configuration parameters to system {}'.format(str(write_params)))
             self.hl_write_params(write_params)
 
             self._frame_start_count = 0
             self._frame_count_time = None
 
             # Send start acquisition command
-            logging.error('Sending start acquisition command')
+            logging.info('Sending start acquisition command')
             self.hl_start_acquisition()
-            logging.error('Start acquisition completed')
+            logging.info('Start acquisition completed')
 
     def hl_initialise(self):
-        logging.error("Initialising front end...")
+        logging.info("Initialising front end...")
         for fem in self._fems:
             self.set_calibration_status(fem, 0)
-        logging.error("Sending a fe_vdd_enable param set to 1")
+        logging.info("Sending a fe_vdd_enable param set to 1")
         params = []
         params.append(ExcaliburParameter('fe_vdd_enable', [[1]], fem=self.powercard_fem_idx+1))
         self.hl_write_params(params)
-        logging.error("Sending the fe_init command")
+        logging.info("Sending the fe_init command")
         self.hl_do_command('fe_init')
-        logging.error("Sending a stop acquisition")
+        logging.info("Sending a stop acquisition")
         return self.hl_stop_acquisition()
 
     def hl_toggle_lv(self):
-        logging.error("Toggling lv_enable 1,0")
+        logging.info("Toggling lv_enable 1,0")
         for fem in self._fems:
             self.set_calibration_status(fem, 0)
         if self.powercard_fem_idx < 0:
@@ -1358,7 +1361,7 @@ class HLExcaliburDetector(ExcaliburDetector):
         self.hl_write_params(params)
 
     def hl_lv_enable(self, name, lv_enable):
-        logging.error("Setting lv_enable to %d", lv_enable)
+        logging.info("Setting lv_enable to %d", lv_enable)
         for fem in self._fems:
             self.set_calibration_status(fem, 0)
         if self.powercard_fem_idx < 0:
@@ -1371,7 +1374,7 @@ class HLExcaliburDetector(ExcaliburDetector):
             self.hl_initialise()
 
     def hl_hv_enable(self, name, hv_enable):
-        logging.error("Setting hv_enable to %d", hv_enable)
+        logging.info("Setting hv_enable to %d", hv_enable)
         if self.powercard_fem_idx < 0:
             self.set_error("Unable to set HV enable [] as server reports no power card".format(name))
             return
