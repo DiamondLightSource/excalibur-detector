@@ -1,5 +1,5 @@
 PROGRAM=excalibur-detector
-VERSION=0.1.0
+VERSION=0.2.0
 TAR_FILE=none
 
 build()
@@ -24,7 +24,6 @@ build()
     # Removing pesky dist dir just in case a previous build is left over
     rm -rf $BUILD_SCRIPT_DIR/control/dist 
 
-#    python_depends NUMPY POSIX_IPC PYSNMP PYZMQ ODINDATA
     python_depends NUMPY CONFIGPARSER ODINCONTROL ODINDATA 
     
     export BOOST_ROOT=$BOOST_PREFIX
