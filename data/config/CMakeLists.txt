@@ -6,11 +6,9 @@ file(GLOB CONFIG_FILES
 message(STATUS "Config files: ${CONFIG_FILES}")
 
 set(CONFIG_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/config/data")
-message(STATUS "Config install dir : ${CONFIG_INSTALL_DIR}")
 
 foreach(CONFIG_FILE ${CONFIG_FILES})
   get_filename_component(CONFIG_FILE_NAME ${CONFIG_FILE} NAME)
-  message(STATUS "Config file dest: ${CONFIG_INSTALL_DIR}/${CONFIG_FILE_NAME}")
   install(
     CODE 
     "
