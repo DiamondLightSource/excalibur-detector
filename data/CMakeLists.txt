@@ -49,5 +49,5 @@ add_subdirectory(${FRAMEPROCESSOR_DIR})
 #add_subdirectory(doc)
 
 # Add the config subdirectory (config files used for integration testing)
-#add_subdirectory(config)
+add_subdirectory(config)
 
