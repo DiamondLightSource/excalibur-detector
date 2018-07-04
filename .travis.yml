@@ -14,10 +14,9 @@ addons:
 install:
 - cd control
 - python setup.py --stub-only install
-- pip install --install-option='--stub-only' -e .[test]
 - pip install coveralls
 script:
-- python setup.py --stub-only nosetests
+- python setup.py --stub-only test
 - coverage report -m
 after_success:
 - coveralls
