@@ -5,7 +5,11 @@ Created on Apr 3 2017
 '''
 
 from collections import OrderedDict
-import ConfigParser
+try:                # pragma: no cover
+    import configparser
+except ImportError: # pragma: no cover
+    import ConfigParser as configparser
+    
 import logging
 import os
 import re
@@ -61,7 +65,7 @@ class ExcaliburDacConfigIniParser(object):
             'TPBufferOut': 'TPBuffOut',
         }
         
-        parser = ConfigParser.SafeConfigParser()
+        parser = configparser.SafeConfigParser()
         
         try:
             with open(config) as fp:

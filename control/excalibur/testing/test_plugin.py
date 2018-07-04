@@ -10,13 +10,14 @@ import requests
 import json
 
 from odin.testing.utils import OdinTestServer
-
+from excalibur.fem import ExcaliburFem
 
 class TestExcaliburPlugin(OdinTestServer):
 
     @classmethod
     def setup_class(cls):
 
+        ExcaliburFem.use_stub_api = True
         cls.json_request_headers = {
             'Content-Type': 'application/json',
             'Accept': 'application/json'

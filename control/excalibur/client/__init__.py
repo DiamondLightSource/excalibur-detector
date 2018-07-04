@@ -1,2 +1,2 @@
-from client import *
-from config_parser import *
+from .client import *
+from .config_parser import *
