@@ -15,11 +15,13 @@ else:                         # pragma: no cover
 
 from excalibur.adapter import ExcaliburAdapter
 from excalibur.detector import ExcaliburDetectorError
+from excalibur.fem import ExcaliburFem
 
 class ExcaliburAdapterFixture(object):
 
     @classmethod
     def setup_class(cls, **adapter_params):
+        ExcaliburFem.use_stub_api = True
         cls.adapter = ExcaliburAdapter(**adapter_params)
         cls.path = 'status/fem'
         cls.request = Mock()
