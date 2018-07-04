@@ -7,7 +7,6 @@ Created on Mar 21, 2017
 from collections import OrderedDict
 
 from .fem_api_parameters import *
-from fem_api_parameters import FEM_OP_DAC_SCAN_STEPS_COMPLETE
 
 FEM_RTN_INTERNALERROR = -1
 CHIPS_PER_FEM = FEM_CHIPS_PER_STRIPE_X
