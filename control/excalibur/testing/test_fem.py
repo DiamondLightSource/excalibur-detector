@@ -117,9 +117,10 @@ class TestExcaliburFem:
 
         chip_id = 0
         param_id = 1001
+        offset = 0
         value = 1234
 
-        rc = self.the_fem.set_int(chip_id, param_id, value)
+        rc = self.the_fem.set_int(chip_id, param_id, offset, value)
 
         assert_equal(rc, FEM_RTN_OK)
 
@@ -128,9 +129,10 @@ class TestExcaliburFem:
         chip_id = 0
         param_id = 1001
         param_len = 10
+        offset = 0
         values = list(range(param_id, param_id + param_len))
 
-        rc = self.the_fem.set_int(chip_id, param_id, values)
+        rc = self.the_fem.set_int(chip_id, param_id, offset, values)
 
         assert_equal(rc, FEM_RTN_OK)
 
@@ -138,10 +140,11 @@ class TestExcaliburFem:
 
         chip_id = 0
         param_id = 10001
+        offset = 0
         values = [3.14]*10
 
         with assert_raises(ExcaliburFemError) as cm:
-            rc = self.the_fem.set_int(chip_id, param_id, values)
+            rc = self.the_fem.set_int(chip_id, param_id, offset, values)
         assert_equal(cm.exception.value, 'set_int: non-integer value specified')
 
     def test_legal_set_and_get_int(self):
@@ -149,9 +152,10 @@ class TestExcaliburFem:
         chip_id = 0
         param_id = 10002
         param_len = 100
+        offset = 0
         values_in = [random.randint(0, 1000000) for x in range(param_len)]
 
-        rc = self.the_fem.set_int(chip_id, param_id, values_in)
+        rc = self.the_fem.set_int(chip_id, param_id, offset, values_in)
         assert_equal(rc, FEM_RTN_OK)
 
         (rc, values_out) = self.the_fem.get_int(chip_id, param_id, param_len)
@@ -162,9 +166,10 @@ class TestExcaliburFem:
         
         chip_id = 0
         param_id = 1000
+        offset = 0
         values = [u"these", u"are", u"strings"]
         
-        rc = self.the_fem.set_string(chip_id, param_id, values)
+        rc = self.the_fem.set_string(chip_id, param_id, offset, values)
         assert_equal(rc, FEM_RTN_OK)
         
     def test_legal_cmd(self):

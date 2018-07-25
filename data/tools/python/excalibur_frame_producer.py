@@ -82,7 +82,7 @@ class ExcaliburFrameProducerDefaults(object):
     def __init__(self):
 
         self.ip_addr = 'localhost'
-        self.port_list = '61649'
+        self.port_list = [61649]
         self.num_frames = 0
         self.tx_interval = 0
         self.drop_frac = 0

@@ -1,4 +1,5 @@
 from setuptools import setup, find_packages, Extension
+from setuptools.command.test import test as TestCommand
 from distutils.command.build_ext import build_ext
 from distutils.command.clean import clean
 from distutils import log
@@ -11,6 +12,7 @@ import sys
 import subprocess
 import shlex
 
+# Extract the stub-only argument from the command line if present
 stub_only = False
 if '--stub-only' in sys.argv:
     stub_only = True
@@ -53,11 +55,18 @@ if not stub_only:
     )
 
     fem_ext_modules.append(fem_api)
+
   
 class ExcaliburBuildExt(build_ext):
+    """
+    Class to build the EXCALIBUR external API library module.
+    """
     
     def run(self):
-
+        """
+        Run the build command
+        """
+        
         # Precompile the API library if necessary        
         if not stub_only:
             if (self.precompile_api_library(fem_api)):
@@ -71,6 +80,9 @@ class ExcaliburBuildExt(build_ext):
         build_ext.run(self)
         
     def precompile_api_library(self, fem_api_ext):
+        """
+        Precompile the external FEM API library.
+        """
         
         log.info("Pre-compiling FEM API library")
 
@@ -115,6 +127,10 @@ class ExcaliburBuildExt(build_ext):
         return api_library_precompiled
         
     def makedir(self, path):
+        """
+        Make a directory at a specified path.
+        """
+        
         try:
             os.makedirs(path)
         except OSError:
@@ -122,7 +138,10 @@ class ExcaliburBuildExt(build_ext):
                 raise
             
     def build_make_cmd(self, flags=''):
-
+        """
+        Construct the make command used to build the API library.
+        """
+        
         make_cmd = 'make {} OBJ_DIR={} LIB_DIR={}'.format(
             flags, self.build_temp_obj_path, self.build_temp_lib_path
             )
@@ -130,13 +149,22 @@ class ExcaliburBuildExt(build_ext):
             make_cmd = make_cmd + ' BOOST_ROOT={}'.format(self.boost_root)
         
         return make_cmd
+
         
 class ExcaliburClean(clean):
+    """
+    Class to clean up the external API library build.
+    """
     
     def run(self):
-
+        """
+        Run the clean command.
+        """
+        
         target_path = 'excalibur'
-        ext_targets = [os.path.join(target_path, lib_name) for lib_name in ['fem_api.so', 'fem_api_stub.so']]
+        ext_targets = [os.path.join(target_path, lib_name) for lib_name in [
+            'fem_api.so', 'fem_api_stub.so'
+        ]]
         
         for ext_target in ext_targets:
             if os.path.exists(ext_target):
@@ -145,18 +173,65 @@ class ExcaliburClean(clean):
                                    
         clean.run(self)        
 
+
+class ExcaliburTest(TestCommand):
+    """
+    Class to test the package using nose correctly.
+    
+    Based on description at http://bit.ly/2IRKDE6
+    """
+    
+    def finalize_options(self):
+        """
+        Finalize command options.
+        """
+        
+        TestCommand.finalize_options(self)
+        self.test_args = []
+        self.test_suite = True
+
+    def run_tests(self):
+        """
+        Run the test suite using nose.
+        """
+        import nose
+        nose.run_exit(argv=['nosetests'])
+
+# Build the command class for setup, merging in versioneer, build, clean and test commands
 merged_cmdclass = versioneer.get_cmdclass()
 merged_cmdclass.update({
     'build_ext': ExcaliburBuildExt,
     'clean': ExcaliburClean,
+    'test': ExcaliburTest,
     })
+
+# Define the required odin-control package version
+required_odin_version='0.3.1'
+
+# Define installation requirements based on odin version 
+install_requires = [
+    'odin=={:s}'.format(required_odin_version)
+]
+
+# Define installation requirements based on odin version 
+dependency_links = [
+    'https://github.com/odin-detector/odin-control/zipball/{0}#egg=odin-{0}'.format(
+        required_odin_version
+    )
+]
+
+tests_require = [
+    'nose', 
+    'coverage', 
+    'mock'
+]
 
 setup(
     name='excalibur-detector',
     version=versioneer.get_version(),
     cmdclass=merged_cmdclass,
-    description='EXCALIBUR detector plugin for ODIN framework',
-    url='https://github.com/stfc-aeg/odin-excalibur',
+    description='EXCALIBUR detector plugins for ODIN control and data frameworks',
+    url='https://github.com/dls-controls/excalibur-detector',
     author='Tim Nicholls',
     author_email='tim.nicholls@stfc.ac.uk',
     ext_modules=fem_ext_modules,

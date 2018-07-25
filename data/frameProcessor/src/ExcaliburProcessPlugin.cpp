@@ -345,7 +345,7 @@ namespace FrameProcessor
         {
           data_frame->set_frame_number(hdr_ptr->frame_number);
         }
-        data_frame->set_dimensions("data", dims);
+        data_frame->set_dimensions(dims);
         data_frame->copy_data(reordered_image, output_image_size);
 
         LOG4CXX_TRACE(logger_, "Pushing data frame.");

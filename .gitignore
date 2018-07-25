@@ -136,3 +136,6 @@ tags
 
 # Eclipse project settings directories
 .settings
+
+# CMake out-of-source build directories for data component
+/data/build*
