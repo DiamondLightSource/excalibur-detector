@@ -325,6 +325,30 @@ class HLExcaliburDetector(ExcaliburDetector):
         self._command_queue = queue.Queue()
         self._command_thread = threading.Thread(target=self.command_loop)
         self._command_thread.start()
+        self.init_hardware_values()
+
+    def init_hardware_values(self):
+        with self._comms_lock:
+            # Initialise the detector parameters
+            write_params = []
+            write_params.append(ExcaliburParameter('mpx3_numtestpulses', [[0]]))
+            write_params.append(ExcaliburParameter('testpulse_enable', [[0]]))
+            write_params.append(ExcaliburParameter('num_frames_to_acquire', [[1]]))
+            write_params.append(ExcaliburParameter('acquisition_time', [[10]]))
+            write_params.append(ExcaliburParameter('mpx3_externaltrigger', [[0]]))
+            write_params.append(ExcaliburParameter('mpx3_triggerpolarity', [[1]]))
+            write_params.append(ExcaliburParameter('mpx3_readwritemode', [[0]]))
+            write_params.append(ExcaliburParameter('mpx3_colourmode', [[0]]))
+            write_params.append(ExcaliburParameter('mpx3_csmspmmode', [[0]]))
+            write_params.append(ExcaliburParameter('mpx3_equalizationmode', [[0]]))
+            write_params.append(ExcaliburParameter('mpx3_gainmode', [[0]]))
+            write_params.append(ExcaliburParameter('mpx3_counterselect', [[0]]))
+            write_params.append(ExcaliburParameter('mpx3_counterdepth', [[2]]))
+            write_params.append(ExcaliburParameter('mpx3_disccsmspm', [[0]]))
+            write_params.append(ExcaliburParameter('mpx3_operationmode', [[0]]))
+            write_params.append(ExcaliburParameter('mpx3_lfsrbypass', [[0]]))
+            write_params.append(ExcaliburParameter('datareceiver_enable', [[0]]))
+            self.hl_write_params(write_params)
 
     def hl_load_udp_config(self, name, filename):
         logging.debug("Loading UDP configuration [{}] from file {}".format(name, filename))
