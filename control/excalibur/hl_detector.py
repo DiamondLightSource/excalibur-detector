@@ -217,7 +217,7 @@ class HLExcaliburDetector(ExcaliburDetector):
                                                   ['1', '6', '12', '24']),
             'config/cal_file_root': StringParameter('cal_file_root', '', callback=self.update_calibration),
             'config/energy_threshold': DoubleParameter('energy_threshold', 0.0, callback=self.update_calibration),
-            'config/udp_file': StringParameter('udp_file', '', callback=self.hl_load_udp_config),
+            'config/udp_file': StringParameter('udp_file', ''),
             'config/hv_bias': DoubleParameter('hv_bias', 0.0, callback=self.hl_hv_bias_set),
             'config/lv_enable': IntegerParameter('lv_enable', 0, callback=self.hl_lv_enable, every_time=True),
             'config/hv_enable': IntegerParameter('hv_enable', 0, callback=self.hl_hv_enable, every_time=True),
