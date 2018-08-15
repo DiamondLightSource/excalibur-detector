@@ -33,7 +33,7 @@ class ExcaliburEfuseIDParser(object):
             logging.error('Failed to parse EfuseID file: {}'.format(e))
             raise IOError('Failed to parse EfuseID file: {}'.format(e))
 
-        logging.error("EfuseIDs: %s", str(self._efuse_ids))
+        logging.debug("EfuseIDs: %s", str(self._efuse_ids))
 
     @property
     def efuse_ids(self):
