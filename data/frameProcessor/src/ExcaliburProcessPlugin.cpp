@@ -183,6 +183,7 @@ namespace FrameProcessor
       }
       verified_frame = boost::shared_ptr<Frame>(new Frame("verified"));
       verified_frame->copy_data(verified_image, nbytes);
+      free(verified_image);
     }
     return verified_frame;
   }

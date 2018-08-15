@@ -217,7 +217,7 @@ class HLExcaliburDetector(ExcaliburDetector):
                                                   ['1', '6', '12', '24']),
             'config/cal_file_root': StringParameter('cal_file_root', '', callback=self.update_calibration),
             'config/energy_threshold': DoubleParameter('energy_threshold', 0.0, callback=self.update_calibration),
-            'config/udp_file': StringParameter('udp_file', '', callback=self.hl_load_udp_config),
+            'config/udp_file': StringParameter('udp_file', ''),
             'config/hv_bias': DoubleParameter('hv_bias', 0.0, callback=self.hl_hv_bias_set),
             'config/lv_enable': IntegerParameter('lv_enable', 0, callback=self.hl_lv_enable, every_time=True),
             'config/hv_enable': IntegerParameter('hv_enable', 0, callback=self.hl_hv_enable, every_time=True),
@@ -307,10 +307,21 @@ class HLExcaliburDetector(ExcaliburDetector):
         self._fast_update_time = datetime.now()
         self._medium_update_time = datetime.now()
         self._slow_update_time = datetime.now()
+        self._startup_time = datetime.now()
         self._frame_start_count = 0
         self._frame_count_time = None
         self._calibration_required = True
         self._moly_humidity_counter = 0
+
+        # Temporary 24 bit mode setup
+        # TODO: Remove this once 24 bit mode has been implemented within the firmware
+        self._24bit_mode = False
+        self._24bit_acquiring = False
+        self._24bit_params = None
+        self._counter_select = 0
+        self._acquisition_loops = 0
+        # End of 24 bit mode
+
         # Perform a slow read
         self.slow_read()
         self._lv_toggle_required = False
@@ -325,6 +336,30 @@ class HLExcaliburDetector(ExcaliburDetector):
         self._command_queue = queue.Queue()
         self._command_thread = threading.Thread(target=self.command_loop)
         self._command_thread.start()
+        self.init_hardware_values()
+
+    def init_hardware_values(self):
+        with self._comms_lock:
+            # Initialise the detector parameters
+            write_params = []
+            write_params.append(ExcaliburParameter('mpx3_numtestpulses', [[0]]))
+            write_params.append(ExcaliburParameter('testpulse_enable', [[0]]))
+            write_params.append(ExcaliburParameter('num_frames_to_acquire', [[1]]))
+            write_params.append(ExcaliburParameter('acquisition_time', [[10]]))
+            write_params.append(ExcaliburParameter('mpx3_externaltrigger', [[0]]))
+            write_params.append(ExcaliburParameter('mpx3_triggerpolarity', [[1]]))
+            write_params.append(ExcaliburParameter('mpx3_readwritemode', [[0]]))
+            write_params.append(ExcaliburParameter('mpx3_colourmode', [[0]]))
+            write_params.append(ExcaliburParameter('mpx3_csmspmmode', [[0]]))
+            write_params.append(ExcaliburParameter('mpx3_equalizationmode', [[0]]))
+            write_params.append(ExcaliburParameter('mpx3_gainmode', [[0]]))
+            write_params.append(ExcaliburParameter('mpx3_counterselect', [[0]]))
+            write_params.append(ExcaliburParameter('mpx3_counterdepth', [[2]]))
+            write_params.append(ExcaliburParameter('mpx3_disccsmspm', [[0]]))
+            write_params.append(ExcaliburParameter('mpx3_operationmode', [[0]]))
+            write_params.append(ExcaliburParameter('mpx3_lfsrbypass', [[0]]))
+            write_params.append(ExcaliburParameter('datareceiver_enable', [[0]]))
+            self.hl_write_params(write_params)
 
     def hl_load_udp_config(self, name, filename):
         logging.debug("Loading UDP configuration [{}] from file {}".format(name, filename))
@@ -451,27 +486,33 @@ class HLExcaliburDetector(ExcaliburDetector):
         logging.debug("Status: %s", self._status)
 
     def update_calibration(self, name, value):
-        lv_enabled = 0
-        with self._param_lock:
-            lv_enabled = self._status['lv_enabled']
-        if lv_enabled == 1: 
-            logging.debug("Updating calibration due to %s updated to %s", name, value)
-            # Reset all calibration status values prior to loading a new calibration
-            for fem in self._fems:
-                self.set_calibration_status(fem, 0)
-            if self._param['config/cal_file_root'].value != '':
-                self._cb.set_file_root(self._param['config/cal_file_root'].value)
-                self._cb.set_csm_spm_mode(self._param['config/csm_spm_mode'].index)
-                self._cb.set_gain_mode(self._param['config/gain_mode'].index)
-                self._cb.set_energy_threshold(self._param['config/energy_threshold'].value)
-                self._cb.load_calibration_files(self._fems)
-                self.download_dac_calibration()
-                self.download_pixel_calibration()
-                logging.debug("Status: %s", self._status)
-            else:
-                logging.debug("No calibration root supplied")            
+        logging.debug("Update calibration requested due to %s updated to %s", name, value)
+        if (datetime.now() - self._startup_time).total_seconds() < 10.0:
+            # update_calibration requested too early so flag for an update as soon as possible
+            self._calibration_required = True
+            logging.debug("Too early in initialisation to calibrate, queued...")
         else:
-            logging.debug("Not updating calibration as LV is not enabled")            
+            lv_enabled = 0
+            with self._param_lock:
+                lv_enabled = self._status['lv_enabled']
+            if lv_enabled == 1:
+                logging.info("Calibrating now...")
+                # Reset all calibration status values prior to loading a new calibration
+                for fem in self._fems:
+                    self.set_calibration_status(fem, 0)
+                if self._param['config/cal_file_root'].value != '':
+                    self._cb.set_file_root(self._param['config/cal_file_root'].value)
+                    self._cb.set_csm_spm_mode(self._param['config/csm_spm_mode'].index)
+                    self._cb.set_gain_mode(self._param['config/gain_mode'].index)
+                    self._cb.set_energy_threshold(self._param['config/energy_threshold'].value)
+                    self._cb.load_calibration_files(self._fems)
+                    self.download_dac_calibration()
+                    self.download_pixel_calibration()
+                    logging.debug("Status: %s", self._status)
+                else:
+                    logging.debug("No calibration root supplied")
+            else:
+                logging.debug("Not updating calibration as LV is not enabled")
 
     def get_chip_ids(self, fem_id):
         # Return either the default chip IDs or reversed chip IDs depending on the FEM
@@ -647,12 +688,13 @@ class HLExcaliburDetector(ExcaliburDetector):
             self.hl_toggle_lv()
 
         while self._executing_updates:
-            if self._calibration_required:
-                try:
-                    self._calibration_required = False
-                    self.update_calibration('lv_enabled', '1')
-                except:
-                    pass
+            if (datetime.now() - self._startup_time).total_seconds() > 10.0:
+                if self._calibration_required:
+                    try:
+                        self._calibration_required = False
+                        self.update_calibration('lv_enabled', '1')
+                    except:
+                        pass
             if (datetime.now() - self._slow_update_time).seconds > 10.0:
                 self._slow_update_time = datetime.now()
                 self.slow_read()
@@ -709,6 +751,9 @@ class HLExcaliburDetector(ExcaliburDetector):
                 mask_file = self._param['config/test_mask_file'].value
                 logging.debug('Manual mask file download has been called with file: %s', mask_file)
                 self.hl_test_mask_calibration(mask_file)
+            elif path == 'command/24bit_acquire':
+                # Perform a 24 bit acquisition loop
+                self.hl_do_24bit_acquisition()
 #            elif path == 'command/start_acquisition':
 #                # Starting an acquisition!
 #                logging.debug('Start acquisition has been called')
@@ -798,89 +843,90 @@ class HLExcaliburDetector(ExcaliburDetector):
             self._status['sensor']['bytes'] = self._status['sensor']['width'] * self._status['sensor']['height'] * bps
 
         frame_rate = 0.0
-        with self._comms_lock:
-            acq_completion_state_mask = 0x40000000
-            # Connect to the hardware
-            if not self.connected:
-                self.connect({'state': True})
+        if not self._24bit_mode:
+            with self._comms_lock:
+                acq_completion_state_mask = 0x40000000
+                # Connect to the hardware
+                if not self.connected:
+                    self.connect({'state': True})
 
-            fem_params = ['frames_acquired', 'control_state']
+                fem_params = ['frames_acquired', 'control_state']
 
-            read_params = ExcaliburReadParameter(fem_params)
-            self.read_fe_param(read_params)
+                read_params = ExcaliburReadParameter(fem_params)
+                self.read_fe_param(read_params)
 
-            while True:
-                time.sleep(0.01)
-                if not self.command_pending():
-                    if self._get('command_succeeded'):
-                        logging.info("Command has succeeded")
+                while True:
+                    time.sleep(0.01)
+                    if not self.command_pending():
+                        if self._get('command_succeeded'):
+                            logging.info("Command has succeeded")
+                        else:
+                            logging.info("Command has failed")
+                        break
+                vals = super(HLExcaliburDetector, self).get('command')['command']['fe_param_read']['value']
+                logging.info("Raw fast read status: %s", vals)
+                # Calculate the minimum number of frames from the fems, as this will be the actual complete frame count
+                frames_acquired = min(vals['frames_acquired'])
+                self._hw_frames_acquired = frames_acquired
+                #acq_completed = all(
+                #    [((state & acq_completion_state_mask) == acq_completion_state_mask) for state in vals['control_state']]
+                #)
+                if self._acquiring:
+                    # Record the frames acquired
+                    self._frames_acquired = frames_acquired
+                    # We are acquiring so check to see if we have the correct number of frames
+                    if frames_acquired == self._acq_frame_count:
+                        self._acquiring = False
+                        # Acquisition has finished so we must send the stop command
+                        logging.debug("stop_acquisition called at end of a complete acquisition")
+                        self.hl_stop_acquisition()
+                    elif frames_acquired > self._acq_frame_count:
+                        # There has been an error in the acquisition, we should never have too many frames
+                        self._acquiring = False
+                        # Acquisition has finished so we must send the stop command
+                        logging.debug("stop_acquisition called at end of a complete acquisition")
+                        self.hl_stop_acquisition()
                     else:
-                        logging.info("Command has failed")
-                    break
-            vals = super(HLExcaliburDetector, self).get('command')['command']['fe_param_read']['value']
-            logging.info("Raw fast read status: %s", vals)
-            # Calculate the minimum number of frames from the fems, as this will be the actual complete frame count
-            frames_acquired = min(vals['frames_acquired'])
-            self._hw_frames_acquired = frames_acquired
-            #acq_completed = all(
-            #    [((state & acq_completion_state_mask) == acq_completion_state_mask) for state in vals['control_state']]
-            #)
-            if self._acquiring:
-                # Record the frames acquired
-                self._frames_acquired = frames_acquired
-                # We are acquiring so check to see if we have the correct number of frames
-                if frames_acquired == self._acq_frame_count:
-                    self._acquiring = False
-                    # Acquisition has finished so we must send the stop command
-                    logging.debug("stop_acquisition called at end of a complete acquisition")
-                    self.hl_stop_acquisition()
-                elif frames_acquired > self._acq_frame_count:
-                    # There has been an error in the acquisition, we should never have too many frames
-                    self._acquiring = False
-                    # Acquisition has finished so we must send the stop command
-                    logging.debug("stop_acquisition called at end of a complete acquisition")
-                    self.hl_stop_acquisition()
-                else:
-                    if frames_acquired > 0:
-                        if self._frame_count_time is None:
-                            self._frame_start_count = frames_acquired
-                            self._frame_count_time = datetime.now()
-                        # Check to see if we have timed out
-                        delta_us = (datetime.now() - self._frame_count_time).microseconds
-                        delta_s = (datetime.now() - self._frame_count_time).seconds
-                        frame_rate = float(frames_acquired-self._frame_start_count) / (float(delta_s) + (float(delta_us) / 1000000.0))
-                    else:
-                        self._frame_start_count = 0
-                        self._frame_count_time = None
-                        frame_rate = 0.0
+                        if frames_acquired > 0:
+                            if self._frame_count_time is None:
+                                self._frame_start_count = frames_acquired
+                                self._frame_count_time = datetime.now()
+                            # Check to see if we have timed out
+                            delta_us = (datetime.now() - self._frame_count_time).microseconds
+                            delta_s = (datetime.now() - self._frame_count_time).seconds
+                            frame_rate = float(frames_acquired-self._frame_start_count) / (float(delta_s) + (float(delta_us) / 1000000.0))
+                        else:
+                            self._frame_start_count = 0
+                            self._frame_count_time = None
+                            frame_rate = 0.0
 
-                    # We can only time out if we are not waiting for triggers
-                    if self._param['config/trigger_mode'].index == ExcaliburDefinitions.FEM_TRIGMODE_INTERNAL:
-                        delta_t = (datetime.now() - self._acq_start_time).seconds
-                        # Work out the worst case for number of expected frames (assuming 25% plus 5 second startup)
-                        delta_t -= 5.0
-                        if delta_t > 0.0:
-                            expected_frames = int(delta_t / (self._acq_exposure * 1.25))
-                            logging.debug("We would have expected %d frames by now", expected_frames)
-                            if expected_frames > frames_acquired:
-                                #self._acquiring = False
-                                # Acquisition has finished so we must send the stop command
-                                #self.set_error("stop_acquisition called due to a timeout")
-                                logging.debug("stop_acquisition called due to a timeout")
-                                #self.hl_stop_acquisition()
+                        # We can only time out if we are not waiting for triggers
+                        if self._param['config/trigger_mode'].index == ExcaliburDefinitions.FEM_TRIGMODE_INTERNAL:
+                            delta_t = (datetime.now() - self._acq_start_time).seconds
+                            # Work out the worst case for number of expected frames (assuming 25% plus 5 second startup)
+                            delta_t -= 5.0
+                            if delta_t > 0.0:
+                                expected_frames = int(delta_t / (self._acq_exposure * 1.25))
+                                logging.debug("We would have expected %d frames by now", expected_frames)
+                                if expected_frames > frames_acquired:
+                                    #self._acquiring = False
+                                    # Acquisition has finished so we must send the stop command
+                                    #self.set_error("stop_acquisition called due to a timeout")
+                                    logging.debug("stop_acquisition called due to a timeout")
+                                    #self.hl_stop_acquisition()
 
-            init_state = []
-            for fem_state in self.get('status/fem')['fem']:
-                init_state.append(fem_state['state'])
+                init_state = []
+                for fem_state in self.get('status/fem')['fem']:
+                    init_state.append(fem_state['state'])
 
-            status = {'fem_state': init_state,
-                      'frames_acquired': self._frames_acquired,
-                      'fem_frames': vals['frames_acquired'],
-                      'frame_rate': frame_rate,
-                      'acquisition_complete': (not self._acquiring)}
-        with self._param_lock:
-            self._status.update(status)
-        logging.debug("Fast update status: %s", status)
+                status = {'fem_state': init_state,
+                          'frames_acquired': self._frames_acquired,
+                          'fem_frames': vals['frames_acquired'],
+                          'frame_rate': frame_rate,
+                          'acquisition_complete': (not self._acquiring)}
+            with self._param_lock:
+                self._status.update(status)
+            logging.debug("Fast update status: %s", status)
 
     def power_card_read(self):
         with self._comms_lock:
@@ -1172,7 +1218,44 @@ class HLExcaliburDetector(ExcaliburDetector):
             #         logging.warning('Cannot select burst mode and matrix read simultaneously, ignoring burst option')
             #     operation_mode = ExcaliburDefinitions.FEM_OPERATION_MODE_MAXTRIXREAD
             #
-            # # TODO - handle 24 bit readout here - needs to check frame count etc and execute C0 read
+
+            num_frames = self._param['config/num_images'].value
+            image_mode = self._param['config/image_mode'].value
+            logging.info('  Image mode set to {}'.format(image_mode))
+            # Check for single image mode
+            if image_mode == ExcaliburDefinitions.FEM_IMAGEMODE_NAMES[0]:
+                # Single image mode requested, set num frames to 1
+                logging.info('  Single image mode, setting number of frames to 1')
+                num_frames = 1
+            logging.info('  Setting number of frames to {}'.format(num_frames))
+
+
+
+            # Temporary 24 bit mode setup
+            # TODO: Remove this once 24 bit mode has been implemented within the firmware
+            # 24-bit reads are a special case, so set things up appropriately in this mode
+            logging.info("config/counter_depth value: {}".format(self._param['config/counter_depth'].value))
+            if int(self._param['config/counter_depth'].value) == 24:
+                self._24bit_mode = True
+
+                # Force counter select to C1, C0 is read manually afterwards
+                self._param['config/counter_select'].set_value(1, callback=False)
+
+                # For acquisitions with > 1 frame, run multiple acquisition loops instea
+                self._acquisition_loops = num_frames
+                num_frames = 1
+                logging.info("Configuring 24-bit acquisition with {} 1-frame loops".format(self._acquisition_loops))
+
+                # In 24-bit mode, force a reset of the UDP frame counter before first acquisition loop
+                logging.info('Resetting UDP frame counter for 24 bit mode')
+                cmd_ok, err_msg = self.hl_do_command('reset_udp_counter')
+                logging.info("{} => {}".format(cmd_ok, err_msg))
+                if not cmd_ok:
+                    logging.error("UDP counter reset failed: {}".format(err_msg))
+                    return
+            else:
+                self._24bit_mode = False
+            # End of 24 bit mode
 
             # Build a list of parameters to be written to the system to set up acquisition
             write_params = []
@@ -1184,15 +1267,6 @@ class HLExcaliburDetector(ExcaliburDetector):
             logging.info('  Setting test pulse enable to {}'.format(tp_enable.value))
             write_params.append(ExcaliburParameter('testpulse_enable', [[tp_enable.index]]))
 
-            num_frames = self._param['config/num_images'].value
-            image_mode = self._param['config/image_mode'].value
-            logging.info('  Image mode set to {}'.format(image_mode))
-            # Check for single image mode
-            if image_mode == ExcaliburDefinitions.FEM_IMAGEMODE_NAMES[0]:
-                # Single image mode requested, set num frames to 1
-                logging.info('  Single image mode, setting number of frames to 1')
-                num_frames = 1
-            logging.info('  Setting number of frames to {}'.format(num_frames))
             write_params.append(ExcaliburParameter('num_frames_to_acquire', [[num_frames]]))
 
             # Record the number of frames for this acquisition
@@ -1275,17 +1349,98 @@ class HLExcaliburDetector(ExcaliburDetector):
             # Connect to the hardware
             # self.connect({'state': True})
 
-            # Write all the parameters to system
-            logging.info('Writing configuration parameters to system {}'.format(str(write_params)))
-            self.hl_write_params(write_params)
+            if self._24bit_mode:
+                self._24bit_params = write_params
+                # Create and queue the command object
+                cmd = {
+                    'path': 'command/24bit_acquire',
+                    'data': {}
+                }
+                self.queue_command(cmd)
+
+            else:
+                # Write all the parameters to system
+                logging.info('Writing configuration parameters to system {}'.format(str(write_params)))
+                self.hl_write_params(write_params)
+
+                self._frame_start_count = 0
+                self._frame_count_time = None
+
+                # Send start acquisition command
+                logging.info('Sending start acquisition command')
+                self.hl_start_acquisition()
+                logging.info('Start acquisition completed')
+
+    def hl_do_24bit_acquisition(self):
+        logging.info('24 bit mode acquisition loop entered...')
+        for acq_loop in range(self._acquisition_loops):
 
             self._frame_start_count = 0
             self._frame_count_time = None
 
+            logging.info(
+                'Executing acquisition loop {} of {}...'.format(acq_loop + 1, self._acquisition_loops)
+            )
+
+            # Write all the parameters to system
+            logging.info('Writing configuration parameters to system')
+            self.hl_write_params(self._24bit_params)
+
             # Send start acquisition command
-            logging.info('Sending start acquisition command')
+            logging.info('Sending part 1 start acquisition command')
             self.hl_start_acquisition()
-            logging.info('Start acquisition completed')
+
+            logging.info("Waiting for part 1 acquisition to complete")
+            self.wait_for_24bit_acquisition_completion(0x40000000)
+            logging.info("Part 1 acquisition has completed")
+
+            self.do_c0_matrix_read()
+            logging.info('Acquisition of 24 bit frame completed')
+
+        # Holding the standard acquiring flag true until all loops have completed
+        self._acquiring = False
+        # Reset 24bit mode flag so that fast read can read
+        self._24bit_mode = False
+        logging.info("Completed {} acquisition loops".format(self._acquisition_loops))
+
+    def do_c0_matrix_read(self):
+        logging.info('Performing a C0 matrix read for 24 bit mode')
+
+        c0_read_params = []
+        c0_read_params.append(ExcaliburParameter(
+            'mpx3_operationmode', [[ExcaliburDefinitions.FEM_OPERATION_MODE_MAXTRIXREAD]]
+        ))
+        # Reset counter select back to C0
+        self._param['config/counter_select'].set_value(0, callback=False)
+
+        c0_read_params.append(ExcaliburParameter('mpx3_counterselect', [[0]]))
+        c0_read_params.append(ExcaliburParameter('num_frames_to_acquire', [[1]]))
+        c0_read_params.append(ExcaliburParameter('mpx3_lfsrbypass', [[0]]))
+
+        logging.info("Sending configuration parameters for C0 matrix read")
+        self.hl_write_params(c0_read_params)
+
+        logging.info("Sending part 2 start acquisition command")
+        self.hl_start_acquisition()
+
+        logging.info("Waiting for part 2 acquisition to complete")
+        self.wait_for_24bit_acquisition_completion(0x1f)
+        logging.info("Part 2 acquisition has completed")
+
+
+    def wait_for_24bit_acquisition_completion(self, acq_completion_state_mask):
+        fem_params = ['frames_acquired', 'control_state']
+        while True:
+            read_params = ExcaliburReadParameter(fem_params)
+            cmd_ok, err_msg, vals = self.hl_read_params(read_params)
+
+            acq_completed = all(
+                [((state & acq_completion_state_mask) == acq_completion_state_mask) for state in vals['control_state']]
+            )
+            if acq_completed:
+                break
+
+        self.hl_stop_acquisition()
 
     def hl_initialise(self):
         logging.info("Initialising front end...")
@@ -1354,14 +1509,25 @@ class HLExcaliburDetector(ExcaliburDetector):
             return self.wait_for_completion()
 
     def hl_do_command(self, command):
+        logging.debug("Do command: {}".format(command))
         with self._comms_lock:
             self.do_command(command, None)
             return self.wait_for_completion()
 
     def hl_write_params(self, params):
+        logging.debug("Writing params: {}".format(params))
         with self._comms_lock:
             self.write_fe_param(params)
             return self.wait_for_completion()
+
+    def hl_read_params(self, params):
+        values = None
+        with self._comms_lock:
+            self.read_fe_param(params)
+            cmd_ok, err_msg = self.wait_for_read_completion()
+            if cmd_ok:
+                values = super(HLExcaliburDetector, self).get('command')['command']['fe_param_read']['value']
+            return (cmd_ok, err_msg, values)
 
     def hl_efuseid_read(self):
         response_status = 0
