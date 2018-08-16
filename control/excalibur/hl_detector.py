@@ -210,7 +210,7 @@ class HLExcaliburDetector(ExcaliburDetector):
             'config/gain_mode': EnumParameter('gain_mode',
                                               ExcaliburDefinitions.FEM_GAIN_MODE_NAMES[0],
                                               ExcaliburDefinitions.FEM_GAIN_MODE_NAMES,
-                                              callback=self.update_calibration),
+                                              callback=self.hl_set_gain_mode),
             'config/counter_select': IntegerParameter('counter_select', 0),
             'config/counter_depth': EnumParameter('counter_depth',
                                                   '12',
@@ -339,27 +339,18 @@ class HLExcaliburDetector(ExcaliburDetector):
         self.init_hardware_values()
 
     def init_hardware_values(self):
+        gain_mode = self._param['config/gain_mode']
+        self.hl_set_gain_mode('config/gain_mode', gain_mode.value)
+
+    def hl_set_gain_mode(self, name, value):
         with self._comms_lock:
             # Initialise the detector parameters
             write_params = []
-            write_params.append(ExcaliburParameter('mpx3_numtestpulses', [[0]]))
-            write_params.append(ExcaliburParameter('testpulse_enable', [[0]]))
-            write_params.append(ExcaliburParameter('num_frames_to_acquire', [[1]]))
-            write_params.append(ExcaliburParameter('acquisition_time', [[10]]))
-            write_params.append(ExcaliburParameter('mpx3_externaltrigger', [[0]]))
-            write_params.append(ExcaliburParameter('mpx3_triggerpolarity', [[1]]))
-            write_params.append(ExcaliburParameter('mpx3_readwritemode', [[0]]))
-            write_params.append(ExcaliburParameter('mpx3_colourmode', [[0]]))
-            write_params.append(ExcaliburParameter('mpx3_csmspmmode', [[0]]))
-            write_params.append(ExcaliburParameter('mpx3_equalizationmode', [[0]]))
-            write_params.append(ExcaliburParameter('mpx3_gainmode', [[0]]))
-            write_params.append(ExcaliburParameter('mpx3_counterselect', [[0]]))
-            write_params.append(ExcaliburParameter('mpx3_counterdepth', [[2]]))
-            write_params.append(ExcaliburParameter('mpx3_disccsmspm', [[0]]))
-            write_params.append(ExcaliburParameter('mpx3_operationmode', [[0]]))
-            write_params.append(ExcaliburParameter('mpx3_lfsrbypass', [[0]]))
-            write_params.append(ExcaliburParameter('datareceiver_enable', [[0]]))
+            gain_mode = self._param['config/gain_mode']
+            logging.info('  Setting ASIC gain mode to {} '.format(gain_mode.value))
+            write_params.append(ExcaliburParameter('mpx3_gainmode', [[gain_mode.index]]))
             self.hl_write_params(write_params)
+            self.update_calibration(name, value)
 
     def hl_load_udp_config(self, name, filename):
         logging.debug("Loading UDP configuration [{}] from file {}".format(name, filename))
