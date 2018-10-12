@@ -27,12 +27,16 @@ class TestExcaliburMissingApiLibrary:
         cls.restore_fem_api_stem = ExcaliburFem.api_stem
         ExcaliburFem.api_stem = 'fem_api_missing'
         ExcaliburFem.use_stub_api = False
-        ExcaliburFem._fem_api = None
+        
+        # Unload any previously loaded API module, to ensure we use the correct stub version for this test class
+        if ExcaliburFem._fem_api is not None:
+            del sys.modules[ExcaliburFem._fem_api.__name__]
+            ExcaliburFem._fem_api = None
 
     @classmethod
     def teardown_class(cls):
 
-        ExcaliburFem.fem_api_stem = cls.restore_fem_api_stem
+        ExcaliburFem.api_stem = cls.restore_fem_api_stem
         ExcaliburFem._fem_api = None
 
     def test_missing_library(self):
