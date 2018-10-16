@@ -185,7 +185,7 @@ void ExcaliburFrameDecoder::init(LoggerPtr& logger, OdinData::IpcMessage& config
 
   // Reset the scratched and lost packet counters
   packets_ignored_ = 0;
-  packets_lost_ = 0 ;
+  packets_lost_ = 0;
   for (int fem = 0; fem < Excalibur::max_num_fems; fem++)
   {
     fem_packets_lost_[fem] = 0;
@@ -674,6 +674,7 @@ void ExcaliburFrameDecoder::get_status(const std::string param_prefix,
 {
   status_msg.set_param(param_prefix + "name", std::string("ExcaliburFrameDecoder"));
   status_msg.set_param(param_prefix + "packets_lost", packets_lost_);
+  status_msg.set_param(param_prefix + "packets_ignored", packets_ignored_);
 
   // Workaround for lack of array setters in IpcMessage
   rapidjson::Value fem_packets_lost_array(rapidjson::kArrayType);
@@ -684,6 +685,28 @@ void ExcaliburFrameDecoder::get_status(const std::string param_prefix,
     fem_packets_lost_array.PushBack(fem_packets_lost_[fem], allocator);
   }
   status_msg.set_param(param_prefix + "fem_packets_lost", fem_packets_lost_array);
+
+}
+
+//! Reset the decoder statistics.
+//!
+//! This method resets the frame decoder statistics, including packets lost 
+//! and ignored.
+//!
+void ExcaliburFrameDecoder::reset_statistics(void)
+{
+  // Call the base class reset method
+  FrameDecoderUDP::reset_statistics();
+
+  LOG4CXX_DEBUG_LEVEL(1, logger_, "Resetting ExcaliburFrameDecoder statistics");
+
+  // Reset the scratched and lost packet counters
+  packets_ignored_ = 0;
+  packets_lost_ = 0 ;
+  for (int fem = 0; fem < Excalibur::max_num_fems; fem++)
+  {
+    fem_packets_lost_[fem] = 0;
+  }
 
 }
 
