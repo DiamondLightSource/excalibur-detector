@@ -473,7 +473,8 @@ size_t ExcaliburFrameDecoder::get_next_payload_size(void) const
 //! \param[in] bytes_received - number of packet payload bytes received
 //! \return current frame receive state
 //!
-FrameDecoder::FrameReceiveState ExcaliburFrameDecoder::process_packet(size_t bytes_received)
+FrameDecoder::FrameReceiveState ExcaliburFrameDecoder::process_packet(
+  size_t bytes_received, int port, struct sockaddr_in* from_addr)
 {
 
   FrameDecoder::FrameReceiveState frame_state = FrameDecoder::FrameReceiveStateIncomplete;
