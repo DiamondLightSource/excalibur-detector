@@ -58,7 +58,8 @@ namespace FrameReceiver
 
     void* get_next_payload_buffer(void) const;
     size_t get_next_payload_size(void) const;
-    FrameDecoder::FrameReceiveState process_packet (size_t bytes_received);
+    FrameDecoder::FrameReceiveState process_packet(
+      size_t bytes_received, int port, struct sockaddr_in* from_addr);
 
     void monitor_buffers(void);
     void get_status(const std::string param_prefix, OdinData::IpcMessage& status_msg);
