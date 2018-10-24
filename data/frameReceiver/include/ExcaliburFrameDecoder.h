@@ -41,6 +41,12 @@ namespace FrameReceiver
     ExcaliburFrameDecoder();
     ~ExcaliburFrameDecoder();
 
+    int get_version_major();
+    int get_version_minor();
+    int get_version_patch();
+    std::string get_version_short();
+    std::string get_version_long();
+
     void init(LoggerPtr& logger, OdinData::IpcMessage& config_msg);
     void request_configuration(const std::string param_prefix, OdinData::IpcMessage& config_reply);
 
