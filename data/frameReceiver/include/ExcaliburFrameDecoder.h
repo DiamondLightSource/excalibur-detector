@@ -69,6 +69,7 @@ namespace FrameReceiver
 
     void monitor_buffers(void);
     void get_status(const std::string param_prefix, OdinData::IpcMessage& status_msg);
+    void reset_statistics(void);
 
     void* get_packet_header_buffer(void);
 

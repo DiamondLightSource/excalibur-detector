@@ -27,7 +27,7 @@ namespace FrameProcessor
       packets_lost_(0)
   {
     // Setup logging for the class
-    logger_ = Logger::getLogger("FW.ExcaliburProcessPlugin");
+    logger_ = Logger::getLogger("FP.ExcaliburProcessPlugin");
     logger_->setLevel(Level::getAll());
     LOG4CXX_INFO(logger_, "ExcaliburProcessPlugin version " << this->get_version_long() << " loaded");
   }
@@ -161,6 +161,19 @@ namespace FrameProcessor
     LOG4CXX_DEBUG(logger_, "Status requested for Excalibur plugin");
     status.set_param(get_name() + "/bitdepth", BIT_DEPTH[asic_counter_depth_]);
     status.set_param(get_name() + "/packets_lost", packets_lost_);
+  }
+
+  /**
+   * Reset process plugin statistics, i.e. counter of packets lost
+   */
+  bool ExcaliburProcessPlugin::reset_statistics(void)
+  {
+    LOG4CXX_DEBUG(logger_, "Statistics reset requested for Excalibur plugin")
+    
+    // Reset packets lost counter
+    packets_lost_ = 0;
+
+    return true;
   }
 
   /**
