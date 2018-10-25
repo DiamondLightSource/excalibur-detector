@@ -8,6 +8,8 @@
  */
 
 #include "ExcaliburFrameDecoder.h"
+#include "logging.h"
+#include "version.h"
 #include "gettime.h"
 #include <iostream>
 #include <iomanip>
@@ -51,12 +53,40 @@ ExcaliburFrameDecoder::ExcaliburFrameDecoder() :
   dropped_frame_buffer_.reset(new uint8_t[Excalibur::max_frame_size()]);
   ignored_packet_buffer_.reset(new uint8_t[Excalibur::primary_packet_size]);
 
+  this->logger_ = Logger::getLogger("FR.ExcaliburDecoderPlugin");
+  LOG4CXX_INFO(logger_, "ExcaliburFrameDecoder version " << this->get_version_long() << " loaded");
+
 }
 
 //! Destructor for ExcaliburFrameDecoder
 //!
 ExcaliburFrameDecoder::~ExcaliburFrameDecoder()
 {
+}
+
+int ExcaliburFrameDecoder::get_version_major()
+{
+  return ODIN_DATA_VERSION_MAJOR;
+}
+
+int ExcaliburFrameDecoder::get_version_minor()
+{
+  return ODIN_DATA_VERSION_MINOR;
+}
+
+int ExcaliburFrameDecoder::get_version_patch()
+{
+  return ODIN_DATA_VERSION_PATCH;
+}
+
+std::string ExcaliburFrameDecoder::get_version_short()
+{
+  return ODIN_DATA_VERSION_STR_SHORT;
+}
+
+std::string ExcaliburFrameDecoder::get_version_long()
+{
+  return ODIN_DATA_VERSION_STR;
 }
 
 //! Initialise the frame decoder.
@@ -72,7 +102,7 @@ void ExcaliburFrameDecoder::init(LoggerPtr& logger, OdinData::IpcMessage& config
 {
 
   // Pass the configuration message to the base class decoder
-  FrameDecoder::init(logger, config_msg);
+  FrameDecoder::init(logger_, config_msg);
 
   LOG4CXX_DEBUG_LEVEL(2, logger_, "Got decoder config message: " << config_msg.encode());
 
