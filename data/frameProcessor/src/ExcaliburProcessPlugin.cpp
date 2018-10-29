@@ -353,6 +353,22 @@ namespace FrameProcessor
         {
           data_frame->set_frame_number(hdr_ptr->frame_number);
         }
+        // set frame data type based on the output image
+        switch (asic_counter_depth_)
+        {
+          case DEPTH_1_BIT:
+          case DEPTH_6_BIT:
+            data_frame->set_data_type(raw_8bit);
+            break;
+
+          case DEPTH_12_BIT:
+            data_frame->set_data_type(raw_16bit);
+            break;
+
+          case DEPTH_24_BIT:
+            data_frame->set_data_type(raw_32bit);
+            break;
+        }
         data_frame->set_dimensions(dims);
         data_frame->copy_data(reordered_image, output_image_size);
 
