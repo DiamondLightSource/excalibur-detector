@@ -10,7 +10,6 @@
 namespace FrameProcessor
 {
 
-  const std::string ExcaliburProcessPlugin::CONFIG_DROPPED_PACKETS = "packets_lost";
   const std::string ExcaliburProcessPlugin::CONFIG_ASIC_COUNTER_DEPTH = "bitdepth";
   const std::string ExcaliburProcessPlugin::CONFIG_IMAGE_WIDTH = "width";
   const std::string ExcaliburProcessPlugin::CONFIG_IMAGE_HEIGHT = "height";
@@ -101,11 +100,6 @@ namespace FrameProcessor
    */
   void ExcaliburProcessPlugin::configure(OdinData::IpcMessage& config, OdinData::IpcMessage& reply)
   {
-    if (config.has_param(ExcaliburProcessPlugin::CONFIG_DROPPED_PACKETS))
-    {
-      packets_lost_ = config.get_param<int>(ExcaliburProcessPlugin::CONFIG_DROPPED_PACKETS);
-    }
-
     if (config.has_param(ExcaliburProcessPlugin::CONFIG_ASIC_COUNTER_DEPTH))
     {
       std::string bit_depth_str =

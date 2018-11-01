@@ -73,9 +73,6 @@ namespace FrameProcessor
     bool reset_statistics(void);
 
   private:
-    /** Configuration constant for clearing out dropped packet counters **/
-    static const std::string CONFIG_DROPPED_PACKETS;
-
     /** Configuration constant for asic counter depth **/
     static const std::string CONFIG_ASIC_COUNTER_DEPTH;
     /** Configuration constant for image width **/
