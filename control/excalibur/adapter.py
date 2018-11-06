@@ -30,6 +30,7 @@ class ExcaliburAdapter(ApiAdapter):
     system, transforming the REST-like API HTTP verbs into the appropriate EXCALIBUR detector
     control actions
     """
+    use_raw_detector = False
 
     def __init__(self, **kwargs):
         """Initialise the ExcaliburAdapter object.
@@ -48,7 +49,10 @@ class ExcaliburAdapter(ApiAdapter):
         if 'detector_fems' in self.options:
             fems = [tuple(fem.strip().split(':')) for fem in self.options['detector_fems'].split(',')]
             try:
-                self.detector = HLExcaliburDetector(fems)
+                if ExcaliburAdapter.use_raw_detector:
+                    self.detector = ExcaliburDetector(fems)
+                else:
+                    self.detector = HLExcaliburDetector(fems)
                 logging.debug('ExcaliburAdapter loaded')
                 
                 if 'powercard_fem_idx' in self.options:
