@@ -5,7 +5,10 @@ Created on Apr 3 2017
 '''
 
 from collections import OrderedDict
-import ConfigParser
+try:
+    import configparser
+except:
+    from six.moves import configparser
 import logging
 import os
 import re
@@ -61,7 +64,7 @@ class ExcaliburDacConfigIniParser(object):
             'TPBufferOut': 'TPBuffOut',
         }
         
-        parser = ConfigParser.SafeConfigParser()
+        parser = configparser.SafeConfigParser()
         
         try:
             with open(config) as fp:
