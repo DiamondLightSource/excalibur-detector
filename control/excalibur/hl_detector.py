@@ -818,7 +818,7 @@ class HLExcaliburDetector(ExcaliburDetector):
                 item_dict = self._status
                 for item in items[1:]:
                     item_dict = item_dict[item]
-            except KeyError, ex:
+            except KeyError as ex:
                 item_dict = None
         return item_dict
 
