@@ -8,6 +8,8 @@
  */
 
 #include "ExcaliburFrameDecoder.h"
+#include "logging.h"
+#include "version.h"
 #include "gettime.h"
 #include <iostream>
 #include <iomanip>
@@ -51,12 +53,40 @@ ExcaliburFrameDecoder::ExcaliburFrameDecoder() :
   dropped_frame_buffer_.reset(new uint8_t[Excalibur::max_frame_size()]);
   ignored_packet_buffer_.reset(new uint8_t[Excalibur::primary_packet_size]);
 
+  this->logger_ = Logger::getLogger("FR.ExcaliburDecoderPlugin");
+  LOG4CXX_INFO(logger_, "ExcaliburFrameDecoder version " << this->get_version_long() << " loaded");
+
 }
 
 //! Destructor for ExcaliburFrameDecoder
 //!
 ExcaliburFrameDecoder::~ExcaliburFrameDecoder()
 {
+}
+
+int ExcaliburFrameDecoder::get_version_major()
+{
+  return ODIN_DATA_VERSION_MAJOR;
+}
+
+int ExcaliburFrameDecoder::get_version_minor()
+{
+  return ODIN_DATA_VERSION_MINOR;
+}
+
+int ExcaliburFrameDecoder::get_version_patch()
+{
+  return ODIN_DATA_VERSION_PATCH;
+}
+
+std::string ExcaliburFrameDecoder::get_version_short()
+{
+  return ODIN_DATA_VERSION_STR_SHORT;
+}
+
+std::string ExcaliburFrameDecoder::get_version_long()
+{
+  return ODIN_DATA_VERSION_STR;
 }
 
 //! Initialise the frame decoder.
@@ -72,7 +102,7 @@ void ExcaliburFrameDecoder::init(LoggerPtr& logger, OdinData::IpcMessage& config
 {
 
   // Pass the configuration message to the base class decoder
-  FrameDecoder::init(logger, config_msg);
+  FrameDecoder::init(logger_, config_msg);
 
   LOG4CXX_DEBUG_LEVEL(2, logger_, "Got decoder config message: " << config_msg.encode());
 
@@ -155,7 +185,7 @@ void ExcaliburFrameDecoder::init(LoggerPtr& logger, OdinData::IpcMessage& config
 
   // Reset the scratched and lost packet counters
   packets_ignored_ = 0;
-  packets_lost_ = 0 ;
+  packets_lost_ = 0;
   for (int fem = 0; fem < Excalibur::max_num_fems; fem++)
   {
     fem_packets_lost_[fem] = 0;
@@ -473,7 +503,8 @@ size_t ExcaliburFrameDecoder::get_next_payload_size(void) const
 //! \param[in] bytes_received - number of packet payload bytes received
 //! \return current frame receive state
 //!
-FrameDecoder::FrameReceiveState ExcaliburFrameDecoder::process_packet(size_t bytes_received)
+FrameDecoder::FrameReceiveState ExcaliburFrameDecoder::process_packet(
+  size_t bytes_received, int port, struct sockaddr_in* from_addr)
 {
 
   FrameDecoder::FrameReceiveState frame_state = FrameDecoder::FrameReceiveStateIncomplete;
@@ -622,7 +653,7 @@ void ExcaliburFrameDecoder::monitor_buffers(void)
   }
   frames_timedout_ += frames_timedout;
 
-  LOG4CXX_DEBUG_LEVEL(3, logger_,  get_num_mapped_buffers() << " frame buffers in use, "
+  LOG4CXX_DEBUG_LEVEL(4, logger_,  get_num_mapped_buffers() << " frame buffers in use, "
       << get_num_empty_buffers() << " empty buffers available, "
       << frames_timedout_ << " incomplete frames timed out, "
       << packets_lost_ << " packets lost"
@@ -643,6 +674,7 @@ void ExcaliburFrameDecoder::get_status(const std::string param_prefix,
 {
   status_msg.set_param(param_prefix + "name", std::string("ExcaliburFrameDecoder"));
   status_msg.set_param(param_prefix + "packets_lost", packets_lost_);
+  status_msg.set_param(param_prefix + "packets_ignored", packets_ignored_);
 
   // Workaround for lack of array setters in IpcMessage
   rapidjson::Value fem_packets_lost_array(rapidjson::kArrayType);
@@ -653,6 +685,28 @@ void ExcaliburFrameDecoder::get_status(const std::string param_prefix,
     fem_packets_lost_array.PushBack(fem_packets_lost_[fem], allocator);
   }
   status_msg.set_param(param_prefix + "fem_packets_lost", fem_packets_lost_array);
+
+}
+
+//! Reset the decoder statistics.
+//!
+//! This method resets the frame decoder statistics, including packets lost 
+//! and ignored.
+//!
+void ExcaliburFrameDecoder::reset_statistics(void)
+{
+  // Call the base class reset method
+  FrameDecoderUDP::reset_statistics();
+
+  LOG4CXX_DEBUG_LEVEL(1, logger_, "Resetting ExcaliburFrameDecoder statistics");
+
+  // Reset the scratched and lost packet counters
+  packets_ignored_ = 0;
+  packets_lost_ = 0 ;
+  for (int fem = 0; fem < Excalibur::max_num_fems; fem++)
+  {
+    fem_packets_lost_[fem] = 0;
+  }
 
 }
 

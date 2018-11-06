@@ -6,6 +6,7 @@
 #include <iostream>
 
 #include "ExcaliburProcessPlugin.h"
+#include "DebugLevelLogger.h"
 
 class ExcaliburProcessPluginTestFixture
 {
