@@ -17,11 +17,6 @@ using namespace log4cxx::helpers;
 #include "ExcaliburFrame.h"
 #include "pcapFrameSimulatorPlugin.h"
 
-#include<arpa/inet.h>
-#include<net/ethernet.h>
-#include<netinet/udp.h>
-#include<netinet/ip.h>
-
 namespace FrameSimulator {
 
     typedef std::vector<ExcaliburFrame> ExcaliburFrames;
@@ -40,12 +35,10 @@ namespace FrameSimulator {
 
     protected:
 
-        virtual void prepare_packets(const struct pcap_pkthdr *header, const u_char *buffer);
-        virtual void replay_packets();
+        virtual void extract_frames(const u_char* data, const int& size);
+        virtual void replay_frames();
 
     private:
-
-        void extract_frames(const u_char* buffer, const int& header_len);//, int size);
 
         /** Pointer to logger **/
         LoggerPtr logger_;
@@ -57,9 +50,6 @@ namespace FrameSimulator {
         int current_subframe_num;
 
         ExcaliburFrames frames;
-
-        struct iphdr *iph;
-        struct udphdr *udph;
 
     };
 
