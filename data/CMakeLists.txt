@@ -18,6 +18,9 @@ set(FRAMERECEIVER_DIR ${EXCALIBUR_SOURCE_DIR}/frameReceiver)
 # Set the frameProcessor directory
 set(FRAMEPROCESSOR_DIR ${EXCALIBUR_SOURCE_DIR}/frameProcessor)
 
+# Set the frameSimulator directory
+set(FRAMESIMULATOR_DIR ${EXCALIBUR_SOURCE_DIR}/frameSimulator)
+
 # Appends the cmake/modules path inside the MAKE_MODULE_PATH variable which stores the
 # directories of additional CMake modules (ie. MacroOutOfSourceBuild.cmake):
 set(CMAKE_MODULE_PATH ${EXCALIBUR_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
@@ -61,6 +64,10 @@ add_subdirectory(${FRAMERECEIVER_DIR})
 
 # Add the frameReceiver subdirectory
 add_subdirectory(${FRAMEPROCESSOR_DIR})
+
+# Add the frameSimulator subdirectory
+add_subdirectory(${FRAMESIMULATOR_DIR})
+
 
 # Add the doc subdirectory
 #add_subdirectory(doc)
