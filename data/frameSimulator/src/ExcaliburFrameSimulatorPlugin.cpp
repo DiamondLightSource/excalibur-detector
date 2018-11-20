@@ -26,28 +26,11 @@ namespace FrameSimulator {
 
     }
 
-    void ExcaliburFrameSimulatorPlugin::prepare_packets(const struct pcap_pkthdr *header, const u_char *buffer) {
+    void ExcaliburFrameSimulatorPlugin::replay_frames() {
 
-        LOG4CXX_DEBUG(logger_, "Preparing packet(s)");
+        LOG4CXX_DEBUG(logger_, "Replaying frame(s)");
 
-        int size = header->len;
-        iph = (struct iphdr *) (buffer + sizeof(struct ethhdr));
-        udph = (struct udphdr *) (buffer + iph->ihl * 4 + sizeof(struct ethhdr));
-        const u_char *d = &buffer[sizeof(struct ethhdr) + iph->ihl * 4 + sizeof udph];
-
-        int header_size = sizeof(struct ethhdr) + iph->ihl * 4 + sizeof(udph);
-
-        this->extract_frames(buffer, size);
-
-    }
-
-    void ExcaliburFrameSimulatorPlugin::replay_packets() {
-
-        LOG4CXX_DEBUG(logger_, "Replaying packet(s)");
-
-        int current_socket = 0;
-
-        int frames_to_replay = replay_frames ? replay_frames.get() : frames.size();
+        int frames_to_replay = replay_numframes ? replay_numframes.get() : frames.size();
 
         LOG4CXX_DEBUG(logger_, "Replaying frames");
         LOG4CXX_DEBUG(logger_, frames_to_replay);
@@ -94,8 +77,7 @@ namespace FrameSimulator {
                     }
                 }
 
-                bind(m_socket, (struct sockaddr *) (&m_addrs[current_socket]), sizeof(m_addrs[current_socket]));
-                frame_bytes_sent += sendto(m_socket, packet.data, packet.size, 0, (struct sockaddr *) (&m_addrs[current_socket]), sizeof(m_addrs[current_socket]));
+                frame_bytes_sent += send_packet(packet, n);
                 frame_packets_sent += 1;
 
                 // Add brief pause between 'packet_gap' frames if packet gap specified
@@ -107,7 +89,6 @@ namespace FrameSimulator {
 
             }
 
-            current_socket = (current_socket + 1 < m_addrs.size()) ? current_socket + 1 : 0;
 
             time(&end_time);
 
@@ -142,13 +123,9 @@ namespace FrameSimulator {
                                boost::lexical_cast<std::string>(float(100.0*total_packets_dropped)/(total_packets_dropped + total_packets_sent)) + "%)");
     }
 
-    void ExcaliburFrameSimulatorPlugin::extract_frames(const u_char *buffer, const int &header_len) {
+    void ExcaliburFrameSimulatorPlugin::extract_frames(const u_char *data, const int &size) {
 
         LOG4CXX_DEBUG(logger_, "Extracting frame(s) from packet");
-
-        int header_size = sizeof(struct ethhdr) + iph->ihl * 4 + sizeof(udph);
-        const u_char *data = buffer + header_size;
-        int size = header_len - header_size;
 
         int subframe_ctr = int(
                 (unsigned char) (data[3]) << 24 | (unsigned char) (data[2]) << 16 | (unsigned char) (data[1]) << 8 |
