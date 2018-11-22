@@ -383,23 +383,6 @@ class HLExcaliburDetector(ExcaliburDetector):
                 source_data_port[-1], dest_data_port_offset[-1]
             ))
 
-        dest_data_addr = []
-        dest_data_mac = []
-        dest_data_port = []
-
-        for idx, node in enumerate(udp_config['nodes']):
-            dest_data_addr.append(node['ipaddr'])
-            dest_data_mac.append(node['mac'])
-            dest_data_port.append(int(node['port']))
-
-            logging.debug('    Node {:d} : ip {:16s} mac: {:s} port: {:5d}'.format(
-                idx, dest_data_addr[-1], dest_data_mac[-1],
-                dest_data_port[-1]
-            ))
-
-        farm_mode_enable = udp_config['farm_mode']['enable']
-        farm_mode_num_dests = udp_config['farm_mode']['num_dests']
-
         udp_params = []
         num_fems = len(self._fems)
         # Append per-FEM UDP source parameters, truncating to number of FEMs present in system
@@ -417,17 +400,57 @@ class HLExcaliburDetector(ExcaliburDetector):
             [[offset] for offset in dest_data_port_offset[:num_fems]]
         ))
 
+        # These configurations need to be nested once each each for [Detector[FEM[Chip]]]
+        if len(udp_config['nodes']) == 1:
+            # We need to duplicate the same configuration to all FEMs
+            dest_data_addr = [[[]]]
+            dest_data_mac = [[[]]]
+            dest_data_port = [[[]]]
+            for node_idx, node in enumerate(udp_config['nodes']):
+                dest_data_addr[0][0].append(node['ipaddr'])
+                dest_data_mac[0][0].append(node['mac'])
+                dest_data_port[0][0].append(int(node['port']))
+
+                logging.debug('    Node {:d} : ip {:16s} mac: {:s} port: {:5d}'.format(
+                    node_idx, dest_data_addr[0][-1], dest_data_mac[0][-1],
+                    dest_data_port[0][-1]
+                ))
+        elif len(udp_config['nodes']) == len(self._fems):
+            # Each FEM needs a different configuration
+            dest_data_addr = [[[]] for _ in self._fems]
+            dest_data_mac = [[[]] for _ in self._fems]
+            dest_data_port = [[[]] for _ in self._fems]
+            for fem_idx, fem_config in enumerate(udp_config['nodes']):
+                for node_idx, node in enumerate(fem_config):
+                    dest_data_addr[fem_idx][0].append(node['ipaddr'])
+                    dest_data_mac[fem_idx][0].append(node['mac'])
+                    dest_data_port[fem_idx][0].append(int(node['port']))
+
+                    logging.debug('    FEM {:d} Node {:d} : ip {:16s} mac: {:s} port: {:5d}'.format(
+                        fem_idx, node_idx, dest_data_addr[fem_idx][0][-1],
+                        dest_data_mac[fem_idx][0][-1], dest_data_port[fem_idx][0][-1]
+                    ))
+        else:
+            message = "Failed to parse UDP json config." \
+                      "Length of node config must match number of FEMs or one."
+            logging.error(message)
+            self.set_error(message)
+            return
+
         # Append the UDP destination parameters, noting [[[ ]]] indexing as they are common for
         # all FEMs and chips - there must be a better way to do this
         udp_params.append(ExcaliburParameter(
-            'dest_data_addr', [[[addr for addr in dest_data_addr]]]
+            'dest_data_addr', dest_data_addr
         ))
         udp_params.append(ExcaliburParameter(
-            'dest_data_mac', [[[mac for mac in dest_data_mac]]]
+            'dest_data_mac', dest_data_mac
         ))
         udp_params.append(ExcaliburParameter(
-            'dest_data_port', [[[port for port in dest_data_port]]]
+            'dest_data_port', dest_data_port
         ))
+
+        farm_mode_enable = udp_config['farm_mode']['enable']
+        farm_mode_num_dests = udp_config['farm_mode']['num_dests']
 
         # Append the farm mode configuration parameters
         udp_params.append(ExcaliburParameter('farm_mode_enable', [[farm_mode_enable]]))
