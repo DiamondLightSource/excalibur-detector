@@ -40,7 +40,9 @@ namespace FrameSimulator {
         int total_packets_dropped = 0;
         int total_bytes_sent = 0;
 
-        for (int n = 0; n < frames_to_replay; n++) {
+        for (int f = 0; f < frames_to_replay; f++) {
+
+            int n = f % frames.size();
 
             time_t start_time;
             time_t end_time;
@@ -92,11 +94,11 @@ namespace FrameSimulator {
 
             time(&end_time);
 
-            int frame_time_s = difftime(end_time, start_time);
+            float frame_time_s = difftime(end_time, start_time);
 
             // Calculate wait time and sleep so that frames are sent at requested intervals
             if (replay_interval) {
-                int wait_time_s = replay_interval.get() - frame_time_s;
+                float wait_time_s = replay_interval.get() - frame_time_s;
                 if (wait_time_s > 0) {
                     LOG4CXX_DEBUG(logger_,
                                   "Pause after frame " + boost::lexical_cast<std::string>(n));
