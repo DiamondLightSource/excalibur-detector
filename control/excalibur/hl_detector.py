@@ -411,15 +411,15 @@ class HLExcaliburDetector(ExcaliburDetector):
             dest_data_addr = [[[]]]
             dest_data_mac = [[[]]]
             dest_data_port = [[[]]]
-            for node_idx, node in enumerate(udp_config['nodes']):
+            for node_idx, node in enumerate(udp_config['nodes'][0]):
                 dest_data_addr[0][0].append(node['ipaddr'])
                 dest_data_mac[0][0].append(node['mac'])
                 dest_data_port[0][0].append(int(node['port']))
 
-                logging.debug('    Node {:d} : ip {:16s} mac: {:s} port: {:5d}'.format(
-                    node_idx, dest_data_addr[0][-1], dest_data_mac[0][-1],
-                    dest_data_port[0][-1]
-                ))
+                #logging.debug('    Node {:d} : ip {:16s} mac: {:s} port: {:5d}'.format(
+                #    node_idx, dest_data_addr[0][-1], dest_data_mac[0][-1],
+                #    dest_data_port[0][-1]
+                #))
         elif len(udp_config['nodes']) == len(self._fems):
             # Each FEM needs a different configuration
             dest_data_addr = [[[]] for _ in self._fems]
