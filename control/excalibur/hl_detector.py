@@ -149,6 +149,9 @@ class HLExcaliburDetector(ExcaliburDetector):
     """Wraps the detector class to provide a high level interface.
 
     """
+    STATE_IDLE = 0
+    STATE_ACQUIRE = 1
+    STATE_CALIBRATING = 2
 
     def __init__(self, fem_connections):
         super(HLExcaliburDetector, self).__init__(fem_connections)
@@ -231,6 +234,7 @@ class HLExcaliburDetector(ExcaliburDetector):
             #                                                                     "Matrix Read"])
         }
         self._status = {
+            'calibrating': 0,
             'calibration': [0] * len(self._fems),
             'lv_enabled': 0,
             'hv_enabled': 0,
@@ -243,6 +247,7 @@ class HLExcaliburDetector(ExcaliburDetector):
             'manufacturer': 'DLS/STFC',
             'model': 'Odin [Excalibur2]',
             'error': '',
+            'state': HLExcaliburDetector.STATE_IDLE,
             'fe_lv_enable': [None],
             'fe_hv_enable': [None],
             'pwr_p5va_vmon': [None],
@@ -487,21 +492,32 @@ class HLExcaliburDetector(ExcaliburDetector):
             with self._param_lock:
                 lv_enabled = self._status['lv_enabled']
             if lv_enabled == 1:
-                logging.info("Calibrating now...")
-                # Reset all calibration status values prior to loading a new calibration
-                for fem in self._fems:
-                    self.set_calibration_status(fem, 0)
-                if self._param['config/cal_file_root'].value != '':
-                    self._cb.set_file_root(self._param['config/cal_file_root'].value)
-                    self._cb.set_csm_spm_mode(self._param['config/csm_spm_mode'].index)
-                    self._cb.set_gain_mode(self._param['config/gain_mode'].index)
-                    self._cb.set_energy_threshold(self._param['config/energy_threshold'].value)
-                    self._cb.load_calibration_files(self._fems)
-                    self.download_dac_calibration()
-                    self.download_pixel_calibration()
-                    logging.debug("Status: %s", self._status)
-                else:
-                    logging.debug("No calibration root supplied")
+                try:
+                    self._status['calibrating'] = 1
+                    self._status['state'] = HLExcaliburDetector.STATE_CALIBRATING
+                    logging.info("Calibrating now...")
+                    # Reset all calibration status values prior to loading a new calibration
+                    for fem in self._fems:
+                        self.set_calibration_status(fem, 0)
+                    if self._param['config/cal_file_root'].value != '':
+                        self._cb.set_file_root(self._param['config/cal_file_root'].value)
+                        self._cb.set_csm_spm_mode(self._param['config/csm_spm_mode'].index)
+                        self._cb.set_gain_mode(self._param['config/gain_mode'].index)
+                        self._cb.set_energy_threshold(self._param['config/energy_threshold'].value)
+                        self._cb.load_calibration_files(self._fems)
+                        self.download_dac_calibration()
+                        self.download_pixel_calibration()
+                        logging.debug("Status: %s", self._status)
+                    else:
+                        logging.debug("No calibration root supplied")
+                    self._status['calibrating'] = 0
+                    self._status['state'] = HLExcaliburDetector.STATE_IDLE
+                except Exception as ex:
+                    # If any exception occurs during calibration reset the status item
+                    self._status['calibrating'] = 0
+                    self._status['state'] = HLExcaliburDetector.STATE_IDLE
+                    # Set the error message
+                    self.set_error(str(ex))
             else:
                 logging.debug("Not updating calibration as LV is not enabled")
 
