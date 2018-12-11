@@ -38,6 +38,7 @@ find_package( Boost 1.41.0
 find_package(Log4CXX 0.10.0 REQUIRED)
 find_package(ZeroMQ 3.2.4 REQUIRED)
 find_package(OdinData REQUIRED)
+find_package(PCAP 1.4.0 REQUIRED)
 
 message("Determining excalibur-detector version")
 include(GetGitRevisionDescription)
