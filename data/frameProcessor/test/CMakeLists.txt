@@ -25,4 +25,5 @@ target_link_libraries(excaliburFrameProcessorTest
 		${ODINDATA_LIBRARIES} 
 		${Boost_LIBRARIES}
 		${LOG4CXX_LIBRARIES}
-		${ZEROMQ_LIBRARIES}) 
+		${ZEROMQ_LIBRARIES} 
+		${PCAP_LIBRARY})
