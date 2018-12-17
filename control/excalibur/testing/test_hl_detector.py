@@ -5,8 +5,8 @@ Tim Nicholls, STFC Application Engineering Group
 """
 
 from nose.tools import *
-from unittest.mock import Mock
 import logging
+from mock import Mock
 
 from excalibur.hl_detector import HLExcaliburDetector, ExcaliburParameter
 from excalibur.fem import ExcaliburFem
