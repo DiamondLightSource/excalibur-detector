@@ -31,6 +31,22 @@ class TestExcaliburDetector():
     def test_detector_simple_init(self):
         assert_equal(len(self.detector.fems), len(self.detector_fems))
 
+    def test_wait_for_read_completion(self):
+        # Mock out the low level calls for get
+        self.detector.get = Mock(return_value={'command_pending': False, 'command_succeeded': True})
+        assert_equal((True, ''), self.detector.wait_for_read_completion())
+        self.detector.get = Mock(return_value={'command_pending': False, 'command_succeeded': False})
+        self.detector.get_fem_error_state = Mock(return_value=[(1, 0, 1, 'Test Error')])
+        assert_equal((False, 'Command read_fe_param failed on 1 FEMs'), self.detector.wait_for_read_completion())
+
+    def test_wait_for_completion(self):
+        # Mock out the low level calls for get
+        self.detector.get = Mock(return_value={'command_pending': False, 'command_succeeded': True})
+        assert_equal((True, ''), self.detector.wait_for_completion())
+        self.detector.get = Mock(return_value={'command_pending': False, 'command_succeeded': False})
+        self.detector.get_fem_error_state = Mock(return_value=[(1, 0, 1, 'Test Error')])
+        assert_equal((False, 'Command write_fe_param failed on 1 FEMs'), self.detector.wait_for_completion())
+
     def test_set_calibration_status(self):
         self.detector.set_calibration_status(1, 1, 'dac')
         assert_equal(self.detector._status['calibration'][0], 1)
@@ -51,10 +67,43 @@ class TestExcaliburDetector():
         self.detector.execute_command({'path': 'command/configure_mask', 'data': None})
         self.detector.hl_test_mask_calibration.assert_called()
 
-
     def test_init_hardware(self):
-        self.detector.wait_for_completion = Mock(return_value=(True, ''))
+        self.detector.get = Mock(return_value={'command_pending': False, 'command_succeeded': True})
         self.detector.write_fe_param = Mock()
         self.detector.init_hardware_values()
         self.detector.write_fe_param.assert_called_with([ExcaliburParameter(param='mpx3_gainmode', value=[[0]], fem=0, chip=0)])
+
+    def test_hl_start_acquisition(self):
+        self.detector.get = Mock(return_value={'command_pending': False, 'command_succeeded': True})
+        self.detector.do_command = Mock()
+        self.detector.write_fe_param = Mock()
+        self.detector.hl_start_acquisition()
+        self.detector.do_command.assert_called_with('start_acquisition', None)
+
+    def test_hl_stop_acquisition(self):
+        self.detector.get = Mock(return_value={'command_pending': False, 'command_succeeded': True})
+        self.detector.do_command = Mock()
+        self.detector.write_fe_param = Mock()
+        self.detector.hl_stop_acquisition()
+        self.detector.do_command.assert_called_with('stop_acquisition', None)
+
+    def test_hl_do_command(self):
+        self.detector.get = Mock(return_value={'command_pending': False, 'command_succeeded': True})
+        self.detector.do_command = Mock()
+        self.detector.write_fe_param = Mock()
+        self.detector.hl_do_command('test_command')
+        self.detector.do_command.assert_called_with('test_command', None)
+
+    def test_hl_write_params(self):
+        self.detector.get = Mock(return_value={'command_pending': False, 'command_succeeded': True})
+        self.detector.write_fe_param = Mock()
+        self.detector.hl_write_params(['test_params'])
+        self.detector.write_fe_param.assert_called_with(['test_params'])
+
+    def test_hl_hv_bias_set(self):
+        self.detector.get = Mock(return_value={'command_pending': False, 'command_succeeded': True})
+        self.detector.write_fe_param = Mock()
+        self.detector.powercard_fem_idx = 0
+        self.detector.hl_hv_bias_set('test_bias', 119.8)
+        self.detector.write_fe_param.assert_called_with([ExcaliburParameter(param='fe_hv_bias', value=[[119.8]], fem=1, chip=0)])
 
