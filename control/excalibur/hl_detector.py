@@ -149,6 +149,8 @@ class HLExcaliburDetector(ExcaliburDetector):
     """Wraps the detector class to provide a high level interface.
 
     """
+    test_mode = False
+
     STATE_IDLE = 0
     STATE_ACQUIRE = 1
     STATE_CALIBRATING = 2
@@ -327,21 +329,22 @@ class HLExcaliburDetector(ExcaliburDetector):
         self._acquisition_loops = 0
         # End of 24 bit mode
 
-        # Perform a slow read
-        self.slow_read()
-        self._lv_toggle_required = False
-        with self._param_lock:
-            if self._status['lv_enabled'] == 0:
-                # We have started up with the lv not enabled so toggle in case of detector power cycle
-                self._lv_toggle_required = True
-        self._status_thread = threading.Thread(target=self.status_loop)
-        self._status_thread.start()
-        # Create the command handling thread
-        self._command_lock = threading.Lock()
-        self._command_queue = queue.Queue()
-        self._command_thread = threading.Thread(target=self.command_loop)
-        self._command_thread.start()
-        self.init_hardware_values()
+        if self.test_mode is False:
+            # Perform a slow read
+            self.slow_read()
+            self._lv_toggle_required = False
+            with self._param_lock:
+                if self._status['lv_enabled'] == 0:
+                    # We have started up with the lv not enabled so toggle in case of detector power cycle
+                    self._lv_toggle_required = True
+            self._status_thread = threading.Thread(target=self.status_loop)
+            self._status_thread.start()
+            # Create the command handling thread
+            self._command_lock = threading.Lock()
+            self._command_queue = queue.Queue()
+            self._command_thread = threading.Thread(target=self.command_loop)
+            self._command_thread.start()
+            self.init_hardware_values()
 
     def init_hardware_values(self):
         gain_mode = self._param['config/gain_mode']
