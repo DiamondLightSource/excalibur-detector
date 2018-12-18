@@ -22,6 +22,7 @@ class ExcaliburAdapterFixture(object):
     @classmethod
     def setup_class(cls, **adapter_params):
         ExcaliburFem.use_stub_api = True
+        ExcaliburAdapter.use_raw_detector = True
         cls.adapter = ExcaliburAdapter(**adapter_params)
         cls.path = 'status/fem'
         cls.request = Mock()

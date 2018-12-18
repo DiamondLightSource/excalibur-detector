@@ -11,6 +11,7 @@ import json
 
 from odin.testing.utils import OdinTestServer
 from excalibur.fem import ExcaliburFem
+from excalibur.adapter import ExcaliburAdapter
 
 class TestExcaliburPlugin(OdinTestServer):
 
@@ -18,6 +19,7 @@ class TestExcaliburPlugin(OdinTestServer):
     def setup_class(cls):
 
         ExcaliburFem.use_stub_api = True
+        ExcaliburAdapter.use_raw_detector = True
         cls.json_request_headers = {
             'Content-Type': 'application/json',
             'Accept': 'application/json'

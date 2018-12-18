@@ -149,6 +149,8 @@ class HLExcaliburDetector(ExcaliburDetector):
     """Wraps the detector class to provide a high level interface.
 
     """
+    test_mode = False
+
     STATE_IDLE = 0
     STATE_ACQUIRE = 1
     STATE_CALIBRATING = 2
@@ -327,21 +329,22 @@ class HLExcaliburDetector(ExcaliburDetector):
         self._acquisition_loops = 0
         # End of 24 bit mode
 
-        # Perform a slow read
-        self.slow_read()
-        self._lv_toggle_required = False
-        with self._param_lock:
-            if self._status['lv_enabled'] == 0:
-                # We have started up with the lv not enabled so toggle in case of detector power cycle
-                self._lv_toggle_required = True
-        self._status_thread = threading.Thread(target=self.status_loop)
-        self._status_thread.start()
-        # Create the command handling thread
-        self._command_lock = threading.Lock()
-        self._command_queue = queue.Queue()
-        self._command_thread = threading.Thread(target=self.command_loop)
-        self._command_thread.start()
-        self.init_hardware_values()
+        if self.test_mode is False:
+            # Perform a slow read
+            self.slow_read()
+            self._lv_toggle_required = False
+            with self._param_lock:
+                if self._status['lv_enabled'] == 0:
+                    # We have started up with the lv not enabled so toggle in case of detector power cycle
+                    self._lv_toggle_required = True
+            self._status_thread = threading.Thread(target=self.status_loop)
+            self._status_thread.start()
+            # Create the command handling thread
+            self._command_lock = threading.Lock()
+            self._command_queue = queue.Queue()
+            self._command_thread = threading.Thread(target=self.command_loop)
+            self._command_thread.start()
+            self.init_hardware_values()
 
     def init_hardware_values(self):
         gain_mode = self._param['config/gain_mode']
@@ -383,10 +386,11 @@ class HLExcaliburDetector(ExcaliburDetector):
             source_data_port.append(fem['port'])
             dest_data_port_offset.append(fem['dest_port_offset']
                                          )
-            logging.debug('    FEM  {:d} : ip {:16s} mac: {:s} port: {:5d} offset: {:d}'.format(
-                idx, source_data_addr[-1], source_data_mac[-1],
-                source_data_port[-1], dest_data_port_offset[-1]
-            ))
+            logging.debug(
+                'FEM  {idx:d} | '
+                'ip: {ipaddr:16s} mac: {mac:s} port: {port:5d} offset: {dest_port_offset:d}'.format(
+                    idx=idx, **fem)
+            )
 
         udp_params = []
         num_fems = len(self._fems)
@@ -406,41 +410,48 @@ class HLExcaliburDetector(ExcaliburDetector):
         ))
 
         # These configurations need to be nested once each each for [Detector[FEM[Chip]]]
-        if len(udp_config['nodes']) == 1:
+        if 'all_fems' in udp_config['nodes'].keys():
             # We need to duplicate the same configuration to all FEMs
             dest_data_addr = [[[]]]
             dest_data_mac = [[[]]]
             dest_data_port = [[[]]]
-            for node_idx, node in enumerate(udp_config['nodes'][0]):
-                dest_data_addr[0][0].append(node['ipaddr'])
-                dest_data_mac[0][0].append(node['mac'])
-                dest_data_port[0][0].append(int(node['port']))
+            for dest_idx, dest in enumerate(udp_config['nodes']['all_fems']):
+                dest_data_addr[0][0].append(dest['ipaddr'])
+                dest_data_mac[0][0].append(dest['mac'])
+                dest_data_port[0][0].append(int(dest['port']))
 
-                #logging.debug('    Node {:d} : ip {:16s} mac: {:s} port: {:5d}'.format(
-                #    node_idx, dest_data_addr[0][-1], dest_data_mac[0][-1],
-                #    dest_data_port[0][-1]
-                #))
-        elif len(udp_config['nodes']) == len(self._fems):
-            # Each FEM needs a different configuration
-            dest_data_addr = [[[]] for _ in self._fems]
-            dest_data_mac = [[[]] for _ in self._fems]
-            dest_data_port = [[[]] for _ in self._fems]
-            for fem_idx, fem_config in enumerate(udp_config['nodes']):
-                for node_idx, node in enumerate(fem_config):
-                    dest_data_addr[fem_idx][0].append(node['ipaddr'])
-                    dest_data_mac[fem_idx][0].append(node['mac'])
-                    dest_data_port[fem_idx][0].append(int(node['port']))
-
-                    logging.debug('    FEM {:d} Node {:d} : ip {:16s} mac: {:s} port: {:5d}'.format(
-                        fem_idx, node_idx, dest_data_addr[fem_idx][0][-1],
-                        dest_data_mac[fem_idx][0][-1], dest_data_port[fem_idx][0][-1]
-                    ))
+                logging.debug(
+                    'Node {node:d} | '
+                    'ip: {ipaddr:16s} mac: {mac:s} port: {port:5d}'.format(
+                        node=dest_idx, **dest)
+                )
         else:
-            message = "Failed to parse UDP json config." \
-                      "Length of node config must match number of FEMs or one."
-            logging.error(message)
-            self.set_error(message)
-            return
+            fems = [fem['name'] for fem in udp_config['fems']]
+            if all(fem in udp_config['nodes'].keys() for fem in fems):
+                # Each FEM needs a different configuration
+                dest_data_addr = [[[]] for _ in self._fems]
+                dest_data_mac = [[[]] for _ in self._fems]
+                dest_data_port = [[[]] for _ in self._fems]
+                for fem_idx, fem_key in enumerate(fems):
+                    for dest_idx, dest in enumerate(udp_config['nodes'][fem_key]):
+                        dest_data_addr[fem_idx][0].append(dest['ipaddr'])
+                        dest_data_mac[fem_idx][0].append(dest['mac'])
+                        dest_data_port[fem_idx][0].append(int(dest['port']))
+
+                        logging.debug(
+                            'FEM {fem:d} Node {node:d} | '
+                            'ip: {ipaddr:16s} mac: {mac:s} port: {port:5d}'.format(
+                                fem=fem_idx, node=dest_idx, **dest)
+                        )
+            else:
+                message = "Failed to parse UDP json config." \
+                          "Node config must contain a config for each entry in fems or " \
+                          "one config with the key 'all_fems'.\n" \
+                          "Fems: {}\n" \
+                          "Node Config Keys: {}".format(fems, udp_config['nodes'].keys())
+                logging.error(message)
+                self.set_error(message)
+                return
 
         # Append the UDP destination parameters, noting [[[ ]]] indexing as they are common for
         # all FEMs and chips - there must be a better way to do this
@@ -857,7 +868,7 @@ class HLExcaliburDetector(ExcaliburDetector):
                 item_dict = self._status
                 for item in items[1:]:
                     item_dict = item_dict[item]
-            except KeyError, ex:
+            except KeyError as ex:
                 item_dict = None
         return item_dict
 

@@ -15,6 +15,7 @@ install:
 - cd control
 - python setup.py --stub-only install
 - pip install coveralls
+- pip install mock
 script:
 - python setup.py --stub-only test
 - coverage report -m

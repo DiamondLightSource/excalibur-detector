@@ -223,7 +223,8 @@ dependency_links = [
 tests_require = [
     'nose', 
     'coverage', 
-    'mock'
+    'mock',
+    'configparser'
 ]
 
 setup(
