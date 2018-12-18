@@ -10,7 +10,6 @@
 namespace FrameProcessor
 {
 
-  const std::string ExcaliburProcessPlugin::CONFIG_DROPPED_PACKETS = "packets_lost";
   const std::string ExcaliburProcessPlugin::CONFIG_ASIC_COUNTER_DEPTH = "bitdepth";
   const std::string ExcaliburProcessPlugin::CONFIG_IMAGE_WIDTH = "width";
   const std::string ExcaliburProcessPlugin::CONFIG_IMAGE_HEIGHT = "height";
@@ -101,11 +100,6 @@ namespace FrameProcessor
    */
   void ExcaliburProcessPlugin::configure(OdinData::IpcMessage& config, OdinData::IpcMessage& reply)
   {
-    if (config.has_param(ExcaliburProcessPlugin::CONFIG_DROPPED_PACKETS))
-    {
-      packets_lost_ = config.get_param<int>(ExcaliburProcessPlugin::CONFIG_DROPPED_PACKETS);
-    }
-
     if (config.has_param(ExcaliburProcessPlugin::CONFIG_ASIC_COUNTER_DEPTH))
     {
       std::string bit_depth_str =
@@ -131,6 +125,7 @@ namespace FrameProcessor
       {
         std::stringstream ss;
         ss << "Invalid bit depth requested: " << bit_depth_str;
+        this->set_error(ss.str());
         LOG4CXX_ERROR(logger_, "Invalid bit depth requested: " << bit_depth_str);
         throw std::runtime_error("Invalid bit depth requested");
       }
@@ -148,6 +143,15 @@ namespace FrameProcessor
 
     image_pixels_ = image_width_ * image_height_;
 
+  }
+
+  void ExcaliburProcessPlugin::requestConfiguration(OdinData::IpcMessage& reply)
+  {
+    // Return the configuration of the process plugin
+    std::string base_str = get_name() + "/";
+    reply.set_param(base_str + ExcaliburProcessPlugin::CONFIG_ASIC_COUNTER_DEPTH, BIT_DEPTH[asic_counter_depth_]);
+    reply.set_param(base_str + ExcaliburProcessPlugin::CONFIG_IMAGE_WIDTH, image_width_);
+    reply.set_param(base_str + ExcaliburProcessPlugin::CONFIG_IMAGE_HEIGHT, image_height_);
   }
 
   /**
@@ -181,8 +185,9 @@ namespace FrameProcessor
    *
    * \param[in] frame - Pointer to a Frame object.
    */
-  void ExcaliburProcessPlugin::process_lost_packets(boost::shared_ptr<Frame> frame)
+  boost::shared_ptr<Frame> ExcaliburProcessPlugin::process_lost_packets(boost::shared_ptr<Frame> frame)
   {
+    boost::shared_ptr<Frame> verified_frame = frame;
     const Excalibur::FrameHeader* hdr_ptr = static_cast<const Excalibur::FrameHeader*>(frame->get_data());
     Excalibur::AsicCounterBitDepth depth = static_cast<Excalibur::AsicCounterBitDepth>(asic_counter_depth_);
     LOG4CXX_DEBUG(logger_, "Processing lost packets for frame " << hdr_ptr->frame_number);
@@ -190,11 +195,53 @@ namespace FrameProcessor
                                                 << " out of a maximum "
                                                 << Excalibur::num_fem_frame_packets(depth) * hdr_ptr->num_active_fems);
     if (hdr_ptr->total_packets_received < (Excalibur::num_fem_frame_packets(depth) * hdr_ptr->num_active_fems)){
+      // We only need to perform this processing if there are any lost packets
+      size_t nbytes = frame->get_data_size();
+      void* verified_image = (void*)malloc(nbytes);
+      memcpy(verified_image, frame->get_data(), nbytes);
+
       int packets_lost = (Excalibur::num_fem_frame_packets(depth) * hdr_ptr->num_active_fems) - hdr_ptr->total_packets_received;
       LOG4CXX_ERROR(logger_, "Frame number " << hdr_ptr->frame_number << " has dropped " << packets_lost << " packets");
       packets_lost_ += packets_lost;
       LOG4CXX_ERROR(logger_, "Total packets lost since startup " << packets_lost_);
+      // Now loop over the packet state arrays to find out which packets are missing
+      // Loop over the number of fems, the number of subframes and the number of packets
+      int lost_packet_no = 0;
+      for (int fem_no = 0; fem_no < (int)hdr_ptr->num_active_fems; fem_no++){
+        for (int subframe = 0; subframe < Excalibur::num_subframes[depth]; subframe++){
+          // Get a pointer to the new memory block
+          char *packet_ptr = (char *)verified_image;
+          // Increment by the buffer header size
+          packet_ptr += sizeof(Excalibur::FrameHeader);
+          // Increment by the fem and subframe size
+          packet_ptr += (((fem_no * Excalibur::num_subframes[depth]) + subframe) * Excalibur::subframe_size(depth));
+          // First loop over all of the primary packets
+          int packet = 0;
+          for (packet = 0; packet < Excalibur::num_primary_packets[depth]; packet++){
+            if (hdr_ptr->fem_rx_state[fem_no].packet_state[subframe][packet] == 0){
+              LOG4CXX_ERROR(logger_, "Missing packet number " << lost_packet_no);
+              // Memset the packet to 0 currently
+              memset(packet_ptr, 0, Excalibur::primary_packet_size);
+            }
+            // Increment by the number of the lost packet x packet size
+            packet_ptr += Excalibur::primary_packet_size;
+            lost_packet_no++;
+          }
+          // Now check the tail packet
+          packet = Excalibur::num_primary_packets[depth];
+          if (hdr_ptr->fem_rx_state[fem_no].packet_state[subframe][packet] == 0){
+            LOG4CXX_ERROR(logger_, "Missing packet number " << lost_packet_no);
+            // Memset the packet to 0 currently
+            memset(packet_ptr, 0, Excalibur::tail_packet_size[depth]);
+          }
+          lost_packet_no++;
+        }
+      }
+      verified_frame = boost::shared_ptr<Frame>(new Frame("verified"));
+      verified_frame->copy_data(verified_image, nbytes);
+      free(verified_image);
     }
+    return verified_frame;
   }
 
   /**
@@ -208,7 +255,7 @@ namespace FrameProcessor
     LOG4CXX_TRACE(logger_, "Reordering frame.");
     LOG4CXX_TRACE(logger_, "Frame size: " << frame->get_data_size());
 
-    this->process_lost_packets(frame);
+    frame = this->process_lost_packets(frame);
 
     const Excalibur::FrameHeader* hdr_ptr =
         static_cast<const Excalibur::FrameHeader*>(frame->get_data());
@@ -260,6 +307,7 @@ namespace FrameProcessor
             << ((max_active_fem_idx + 1) * FEM_TOTAL_PIXELS)
             << ", max FEM idx: " << max_active_fem_idx
             << ") will exceed dimensions of output image (" << image_pixels_ << ")";
+        this->set_error(msg.str());
         throw std::runtime_error(msg.str());
       }
 
@@ -267,6 +315,7 @@ namespace FrameProcessor
       reordered_image = (void*)malloc(output_image_size);
       if (reordered_image == NULL)
       {
+        this->set_error("Failed to allocate temporary buffer for reordered image");
         throw std::runtime_error("Failed to allocate temporary buffer for reordered image");
       }
 
@@ -293,7 +342,7 @@ namespace FrameProcessor
         std::size_t output_offset = fem_idx * FEM_TOTAL_PIXELS;
 
         // Determine stripe orientation based on FEM index
-        bool stripe_is_even = ((fem_idx & 1) == 0);
+        bool stripe_is_even = ((fem_idx & 1) == 1);
         LOG4CXX_TRACE(logger_, "Active FEM idx=" << static_cast<int>(fem_idx)
             << ": stripe orientation is " << (stripe_is_even ? "even" : "odd"));
 
@@ -383,6 +432,7 @@ namespace FrameProcessor
     {
       std::stringstream ss;
       ss << "EXCALIBUR frame decode failed: " << e.what();
+      this->set_error(ss.str());
       LOG4CXX_ERROR(logger_, ss.str());
     }
   }
@@ -416,6 +466,7 @@ namespace FrameProcessor
       {
         std::stringstream msg;
         msg << "Invalid bit depth specified for reordered slice size: " << asic_counter_depth;
+        this->set_error(msg.str());
         throw std::runtime_error(msg.str());
       }
       break;

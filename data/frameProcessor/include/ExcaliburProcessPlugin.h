@@ -68,13 +68,11 @@ namespace FrameProcessor
     std::string get_version_long();
 
     void configure(OdinData::IpcMessage& config, OdinData::IpcMessage& reply);
+    void requestConfiguration(OdinData::IpcMessage& reply);
     void status(OdinData::IpcMessage& status);
     bool reset_statistics(void);
 
   private:
-    /** Configuration constant for clearing out dropped packet counters **/
-    static const std::string CONFIG_DROPPED_PACKETS;
-
     /** Configuration constant for asic counter depth **/
     static const std::string CONFIG_ASIC_COUNTER_DEPTH;
     /** Configuration constant for image width **/
@@ -95,7 +93,7 @@ namespace FrameProcessor
     /** Configuration string representations for the bit depths */
     static const std::string BIT_DEPTH[4];
 
-    void process_lost_packets(boost::shared_ptr<Frame> frame);
+    boost::shared_ptr<Frame> process_lost_packets(boost::shared_ptr<Frame> frame);
     void process_frame(boost::shared_ptr<Frame> frame);
     void reorder_1bit_stripe(unsigned int* in, unsigned char* out, bool stripe_is_even);
     void reorder_6bit_stripe(unsigned char* in, unsigned char* out, bool stripe_is_even);
