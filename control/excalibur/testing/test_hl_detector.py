@@ -54,9 +54,11 @@ class TestExcaliburDetector():
         assert_equal(self.detector._status['calibration'][1], 63)
 
     def test_execute_command(self):
+        hl_initialise = self.detector.hl_initialise
         self.detector.hl_initialise = Mock()
         self.detector.execute_command({'path': 'command/initialise', 'data': None})
         self.detector.hl_initialise.assert_called()
+        self.detector.hl_initialise = hl_initialise
         self.detector.update_calibration = Mock()
         self.detector.execute_command({'path': 'command/force_calibrate', 'data': None})
         self.detector.update_calibration.assert_called()
@@ -106,4 +108,34 @@ class TestExcaliburDetector():
         self.detector.powercard_fem_idx = 0
         self.detector.hl_hv_bias_set('test_bias', 119.8)
         self.detector.write_fe_param.assert_called_with([ExcaliburParameter(param='fe_hv_bias', value=[[119.8]], fem=1, chip=0)])
+
+    def test_hl_hv_enable(self):
+        self.detector.get = Mock(return_value={'command_pending': False, 'command_succeeded': True})
+        self.detector.write_fe_param = Mock()
+        self.detector.powercard_fem_idx = 0
+        self.detector.hl_hv_enable('test_hv_enable', 1)
+        self.detector.write_fe_param.assert_called_with([ExcaliburParameter(param='fe_hv_enable', value=[[1]], fem=1, chip=0)])
+
+    def test_hl_lv_enable(self):
+        self.detector.get = Mock(return_value={'command_pending': False, 'command_succeeded': True})
+        self.detector.write_fe_param = Mock()
+        self.detector.powercard_fem_idx = 0
+        self.detector.hl_lv_enable('test_lv_enable', 0)
+        self.detector.write_fe_param.assert_called_with([ExcaliburParameter(param='fe_lv_enable', value=[[0]], fem=1, chip=0)])
+
+    def test_hl_lv_toggle(self):
+        self.detector.get = Mock(return_value={'command_pending': False, 'command_succeeded': True})
+        self.detector.write_fe_param = Mock()
+        self.detector.powercard_fem_idx = 0
+        self.detector.hl_toggle_lv()
+        self.detector.write_fe_param.assert_called_with([ExcaliburParameter(param='fe_lv_enable', value=[[0]], fem=1, chip=0)])
+
+    def test_hl_initialise(self):
+        self.detector.get = Mock(return_value={'command_pending': False, 'command_succeeded': True})
+        self.detector.powercard_fem_idx = 0
+        self.detector.do_command = Mock()
+        self.detector.write_fe_param = Mock()
+        self.detector.hl_initialise()
+        self.detector.write_fe_param.assert_called_with([ExcaliburParameter(param='fe_vdd_enable', value=[[1]], fem=1, chip=0)])
+        self.detector.do_command.assert_called_with('stop_acquisition', None)
 
