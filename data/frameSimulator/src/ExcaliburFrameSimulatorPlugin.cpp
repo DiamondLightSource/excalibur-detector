@@ -12,6 +12,10 @@
 
 namespace FrameSimulator {
 
+    /** Construct an ExcaliburFrameSimulatorPlugin
+    * setup an instance of the logger
+    * initialises data and frame counts
+    */
     ExcaliburFrameSimulatorPlugin::ExcaliburFrameSimulatorPlugin() : pcapFrameSimulatorPlugin() {
 
         // Setup logging for the class
@@ -26,6 +30,9 @@ namespace FrameSimulator {
 
     }
 
+    /** Replay the stored excalibur frames
+     * called by simulate
+     */
     void ExcaliburFrameSimulatorPlugin::replay_frames() {
 
         LOG4CXX_DEBUG(logger_, "Replaying frame(s)");
@@ -125,6 +132,10 @@ namespace FrameSimulator {
                                boost::lexical_cast<std::string>(float(100.0*total_packets_dropped)/(total_packets_dropped + total_packets_sent)) + "%)");
     }
 
+    /** Extracts the frames from the pcap data file buffer
+     * \param[in] data - pcap data
+     * \param[in] size
+     */
     void ExcaliburFrameSimulatorPlugin::extract_frames(const u_char *data, const int &size) {
 
         LOG4CXX_DEBUG(logger_, "Extracting frame(s) from packet");

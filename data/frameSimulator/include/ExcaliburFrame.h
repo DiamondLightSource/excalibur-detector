@@ -14,6 +14,12 @@ namespace FrameSimulator {
 
     typedef std::vector<Packet> PacketList;
 
+    /** ExcaliburFrame class
+     *
+     * An excalibur frame and its packets; defines the SOF and EOF markers
+     * for reading an excalibur frame from a pcap file
+     */
+
     class ExcaliburFrame {
 
         friend class ExcaliburFrameSimulatorPlugin;

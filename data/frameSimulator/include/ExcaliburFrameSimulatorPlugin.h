@@ -21,6 +21,12 @@ namespace FrameSimulator {
 
     typedef std::vector<ExcaliburFrame> ExcaliburFrames;
 
+    /** ExcaliburFrameSimulatorPlugin
+     *
+     *  'extract_frames' is called on setup: this takes the content of the pcap file and reproduces the
+     *  excalibur frames to store
+     *  'replay_frames' is called by simulate: this then replays the stored frames
+     */
     class ExcaliburFrameSimulatorPlugin : public pcapFrameSimulatorPlugin {
 
     public:
