@@ -355,7 +355,7 @@ class HLExcaliburDetector(ExcaliburDetector):
             # Initialise the detector parameters
             write_params = []
             gain_mode = self._param['config/gain_mode']
-            logging.info('  Setting ASIC gain mode to {} '.format(gain_mode.value))
+            logging.debug('  Setting ASIC gain mode to {} '.format(gain_mode.value))
             write_params.append(ExcaliburParameter('mpx3_gainmode', [[gain_mode.index]]))
             self.hl_write_params(write_params)
             self.update_calibration(name, value)
@@ -900,12 +900,12 @@ class HLExcaliburDetector(ExcaliburDetector):
                     time.sleep(0.01)
                     if not self.command_pending():
                         if self._get('command_succeeded'):
-                            logging.info("Command has succeeded")
+                            logging.debug("Command has succeeded")
                         else:
-                            logging.info("Command has failed")
+                            logging.debug("Command has failed")
                         break
                 vals = super(HLExcaliburDetector, self).get('command')['command']['fe_param_read']['value']
-                logging.info("Raw fast read status: %s", vals)
+                logging.debug("Raw fast read status: %s", vals)
                 # Calculate the minimum number of frames from the fems, as this will be the actual complete frame count
                 frames_acquired = min(vals['frames_acquired'])
                 self._hw_frames_acquired = frames_acquired
@@ -1016,7 +1016,7 @@ class HLExcaliburDetector(ExcaliburDetector):
                     time.sleep(0.1)
                     if not self.command_pending():
                         if self._get('command_succeeded'):
-                            logging.info("Command has succeeded")
+                            logging.debug("Command has succeeded")
                             status = super(HLExcaliburDetector, self).get('command')['command']['fe_param_read'][
                                 'value']
                             with self._param_lock:
@@ -1064,7 +1064,7 @@ class HLExcaliburDetector(ExcaliburDetector):
                     time.sleep(0.1)
                     if not self.command_pending():
                         if self._get('command_succeeded'):
-                            logging.info("Command has succeeded")
+                            logging.debug("Command has succeeded")
                             status = super(HLExcaliburDetector, self).get('command')['command']['fe_param_read'][
                                 'value']
                             with self._param_lock:
@@ -1099,7 +1099,7 @@ class HLExcaliburDetector(ExcaliburDetector):
                                     self._moly_humidity_counter -= 1
                                 self._status['lv_enabled'] = lv_enabled
                         else:
-                            logging.info("Command has failed")
+                            logging.debug("Command has failed")
                             with self._param_lock:
                                 for param in fe_params:
                                     self._status[param] = self._default_status
@@ -1599,7 +1599,7 @@ class HLExcaliburDetector(ExcaliburDetector):
                     time.sleep(0.1)
                     if not self.command_pending():
                         if self._get('command_succeeded'):
-                            logging.info("Command has succeeded")
+                            logging.debug("Command has succeeded")
                             status = super(HLExcaliburDetector, self).get('command')['command']['fe_param_read']['value']
                             fem = 1
                             for efuse in status['efuseid']:
