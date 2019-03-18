@@ -243,7 +243,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'excalibur_odin  = odin.server:main',
+            'excalibur_odin  = excalibur.server:main',
             'excalibur_test_app  = excalibur.client.test_app:main',
         ]
     },
