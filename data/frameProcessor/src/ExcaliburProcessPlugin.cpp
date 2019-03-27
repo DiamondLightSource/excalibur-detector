@@ -397,10 +397,17 @@ namespace FrameProcessor
         {
           // Only every other incoming frame results in a new frame
           data_frame->set_frame_number(hdr_ptr->frame_number/2);
+
+          // Set the frame UID parameter to the frame number + 1
+          uint64_t uid = (hdr_ptr->frame_number / 2) + 1;
+          data_frame->set_parameter("UID", uid);
         }
         else
         {
           data_frame->set_frame_number(hdr_ptr->frame_number);
+          // Set the frame UID parameter to the frame number + 1
+          uint64_t uid = hdr_ptr->frame_number + 1;
+          data_frame->set_parameter("UID", uid);
         }
         // set frame data type based on the output image
         switch (asic_counter_depth_)
