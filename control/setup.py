@@ -237,7 +237,7 @@ setup(
     author_email='tim.nicholls@stfc.ac.uk',
     ext_modules=fem_ext_modules,
     packages=find_packages(),
-    install_requires=['odin-control', 'odin-data', 'configparser'],
+    install_requires=['odin-control', 'odin-data', 'configparser', 'enum34'],
     extras_require={
       'test': ['nose', 'coverage', 'mock'],  
     },

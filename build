@@ -24,7 +24,7 @@ build()
     # Removing pesky dist dir just in case a previous build is left over
     rm -rf $BUILD_SCRIPT_DIR/control/dist 
 
-    python_depends NUMPY CONFIGPARSER ODINCONTROL ODINDATA 
+    python_depends ENUM CONFIGPARSER ODINCONTROL ODINDATA
     
     export BOOST_ROOT=$BOOST_PREFIX
     export SRC=$BUILD_SCRIPT_DIR/control
