@@ -50,7 +50,7 @@ if (NOT APPLE)
 else(NOT APPLE)
     set(LIB_RECEIVER OdinFrameReceiver)
     set(LIB_PROCESSOR OdinFrameProcessor)
-	set(LIB_SIMULATOR OdinFrameSimulator)
+    set(LIB_SIMULATOR OdinFrameSimulator)
 endif(NOT APPLE)
 
 set(ODINDATA_DEFINITIONS ${PC_ODINDATA_CFLAGS_OTHER})

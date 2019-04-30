@@ -1,6 +1,7 @@
 #include <string>
 
 #include "ExcaliburFrameSimulatorPlugin.h"
+#include "ExcaliburDefinitions.h"
 
 #include <cstdlib>
 #include <time.h>
@@ -138,6 +139,8 @@ namespace FrameSimulator {
      */
     void ExcaliburFrameSimulatorPlugin::extract_frames(const u_char *data, const int &size) {
 
+        Excalibur::AsicCounterBitDepth depth = Excalibur::bitDepth1;
+
         LOG4CXX_DEBUG(logger_, "Extracting frame(s) from packet");
 
         int subframe_ctr = int(
@@ -147,8 +150,8 @@ namespace FrameSimulator {
                 (unsigned char) (data[7]) << 24 | (unsigned char) (data[6]) << 16 | (unsigned char) (data[5]) << 8 |
                 (unsigned char) (data[4]));
 
-        bool is_SOF = pkt_ctr & ExcaliburFrame::SOF_marker;
-        bool is_EOF = pkt_ctr & ExcaliburFrame::EOF_marker;
+        bool is_SOF = pkt_ctr & Excalibur::start_of_frame_mask;
+        bool is_EOF = pkt_ctr & Excalibur::end_of_frame_mask;
 
         if (is_SOF) {
 
@@ -156,9 +159,9 @@ namespace FrameSimulator {
                                    boost::lexical_cast<std::string>(total_packets));
 
             // Increment the current subframe index, modulo the number of subframes expected
-            current_subframe_num = (current_subframe_num + 1) % ExcaliburFrame::num_subframes;
+            current_subframe_num = (current_subframe_num + 1) % Excalibur::num_subframes[depth];
 
-            LOG4CXX_DEBUG(logger_, "Current sub frame " + current_subframe_num);
+            LOG4CXX_DEBUG(logger_, "Current sub frame " + boost::lexical_cast<std::string>(current_subframe_num));
 
             if (current_subframe_num == 0) {
 
@@ -177,8 +180,7 @@ namespace FrameSimulator {
             long long trailer_frame_ctr = (long long) ((unsigned char) (data[size - 5]) << 24 |
                                                        (unsigned char) (data[size - 6]) << 16 |
                                                        (unsigned char) (data[size - 7]) << 8 |
-                                                       (unsigned char) (data[size - 8]\
-));
+                                                       (unsigned char) (data[size - 8]));
 
             LOG4CXX_DEBUG(logger_,
                           "EOF marker for subframe " + boost::lexical_cast<std::string>(subframe_ctr) + " at packet " +
@@ -201,7 +203,7 @@ namespace FrameSimulator {
 
     }
 
-/**
+   /**
    * Get the plugin major version number.
    *
    * \return major version number as an integer

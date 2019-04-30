@@ -28,10 +28,6 @@ namespace FrameSimulator {
 
         ExcaliburFrame(const int& frameNum);
 
-        static const unsigned int SOF_marker = 1 << 31;
-        static const unsigned int EOF_marker = 1 << 30;
-        static const int num_subframes = 2;
-
     private:
 
         PacketList packets;
@@ -42,8 +38,6 @@ namespace FrameSimulator {
         std::vector<int> EOF_markers;
 
     };
-
-
 
 }
 
