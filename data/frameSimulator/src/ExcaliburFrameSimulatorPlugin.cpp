@@ -110,7 +110,10 @@ namespace FrameSimulator {
                 if (wait_time_s > 0) {
                     LOG4CXX_DEBUG(logger_,
                                   "Pause after frame " + boost::lexical_cast<std::string>(n));
-                    sleep(wait_time_s);
+                    struct timespec wait_spec;
+                    wait_spec.tv_sec = (int)wait_time_s;
+                    wait_spec.tv_nsec = (long)((wait_time_s - (float)wait_spec.tv_sec) * 1000000000L);
+                    nanosleep(&wait_spec, NULL);
                 }
             }
 
