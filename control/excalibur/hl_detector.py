@@ -17,9 +17,12 @@ else:
     import queue as queue
 
 from excalibur.detector import ExcaliburDetector, ExcaliburDetectorError
+from excalibur.detector_sim import ExcaliburSimulator
 from excalibur.calibration_files import DetectorCalibration
 from excalibur.definitions import ExcaliburDefinitions
 from excalibur.efuse_id_parser import ExcaliburEfuseIDParser
+from excalibur.fem import ExcaliburFem
+from odin.adapters.parameter_tree import ParameterAccessor, ParameterTree
 from enum import Enum
 from collections import OrderedDict
 
@@ -155,7 +158,106 @@ class HLExcaliburDetector(ExcaliburDetector):
     STATE_ACQUIRE = 1
     STATE_CALIBRATING = 2
 
-    def __init__(self, fem_connections):
+    CALIBRATION_AREAS = [
+        'dac',
+        'discl',
+        'disch',
+        'mask',
+        'thresh'
+        ]
+
+    POWERCARD_PARAMS = [['fe_lv_enable',
+                         'fe_hv_enable',
+                         'pwr_p5va_vmon'],
+                        ['pwr_p5vb_vmon',
+                         'pwr_p5v_fem00_imon',
+                         'pwr_p5v_fem01_imon'],
+                        ['pwr_p5v_fem02_imon',
+                         'pwr_p5v_fem03_imon',
+                         'pwr_p5v_fem04_imon'],
+                        ['pwr_p5v_fem05_imon',
+                         'pwr_p48v_vmon',
+                         'pwr_p48v_imon'],
+                        ['pwr_p5vsup_vmon',
+                         'pwr_p5vsup_imon',
+                         'pwr_humidity_mon'],
+                        ['pwr_air_temp_mon',
+                         'pwr_coolant_temp_mon',
+                         'pwr_coolant_flow_mon'],
+                        ['pwr_p3v3_imon',
+                         'pwr_p1v8_imonA',
+                         'pwr_bias_imon'],
+                        ['pwr_p3v3_vmon',
+                         'pwr_p1v8_vmon',
+                         'pwr_bias_vmon'],
+                        ['pwr_p1v8_imonB',
+                         'pwr_p1v8_vmonB',
+                         'pwr_coolant_temp_status'],
+                        ['pwr_humidity_status',
+                         'pwr_coolant_flow_status',
+                         'pwr_air_temp_status',
+                         'pwr_fan_fault']
+                        ]
+
+    EFUSE_PARAMS = [
+        'efuseid_c0',
+        'efuseid_c1',
+        'efuseid_c2',
+        'efuseid_c3',
+        'efuseid_c4',
+        'efuseid_c5',
+        'efuseid_c6',
+        'efuseid_c7',
+        'efuse_match'
+        ]
+
+    FEM_PARAMS = [
+        'fem_local_temp',
+        'fem_remote_temp',
+        'moly_temp',
+        'moly_humidity'
+        ]
+
+    SUPPLY_PARAMS = [
+        'supply_p1v5_avdd1',
+        'supply_p1v5_avdd2',
+        'supply_p1v5_avdd3',
+        'supply_p1v5_avdd4',
+        'supply_p1v5_vdd1',
+        'supply_p2v5_dvdd1'
+        ]
+
+    STR_STATUS = 'status'
+    STR_STATUS_SENSOR = 'sensor'
+    STR_STATUS_SENSOR_WIDTH = 'width'
+    STR_STATUS_SENSOR_HEIGHT = 'height'
+    STR_STATUS_SENSOR_BYTES = 'bytes'
+    STR_STATUS_MANUFACTURER = 'manufacturer'
+    STR_STATUS_MODEL = 'model'
+    STR_STATUS_ERROR = 'error'
+    STR_STATUS_STATE = 'state'
+    STR_STATUS_FEM_STATE = 'fem_state'
+    STR_STATUS_FEM_FRAMES = 'fem_frames'
+    STR_STATUS_FRAMES_ACQUIRED = 'frames_acquired'
+    STR_STATUS_FRAME_RATE = 'frame_rate'
+    STR_STATUS_ACQUISITION_COMPLETE = 'acquisition_complete'
+    STR_STATUS_LV_ENABLED = 'lv_enabled'
+    STR_STATUS_CALIBRATING = 'calibrating'
+    STR_STATUS_CALIBRATION = 'calibration'
+    STR_STATUS_POWERCARD = 'powercard'
+    STR_STATUS_POWERCARD_HV_ENABLED = 'hv_enabled'
+    STR_STATUS_EFUSE = 'efuse'
+    STR_STATUS_FEM = 'fems'
+    STR_STATUS_SUPPLY = 'supply'
+
+    def __init__(self, fem_connections, simulated=False):
+        self._simulated = simulated
+        if self._simulated:
+            ExcaliburFem.use_stub_api = True
+            self._simulator = ExcaliburSimulator(fem_connections)
+        else:
+            self._simulator = None
+
         super(HLExcaliburDetector, self).__init__(fem_connections)
 
         self._fems = range(1, len(fem_connections)+1)
@@ -165,8 +267,34 @@ class HLExcaliburDetector(ExcaliburDetector):
         for fem in self._fems:
             self._default_status.append(None)
 
-        # Create the calibration object
+        # Initialise sensor dimensions
+        self._sensor_width = ExcaliburDefinitions.X_PIXELS_PER_CHIP * ExcaliburDefinitions.X_CHIPS_PER_FEM
+        self._sensor_height = ExcaliburDefinitions.Y_PIXELS_PER_CHIP * ExcaliburDefinitions.Y_CHIPS_PER_FEM * len(self._fems)
+        self._sensor_bytes = 0
+
+        # Initialise state
+        self._state = HLExcaliburDetector.STATE_IDLE
+
+        # Initialise error message
+        self._error = ''
+
+        # Initialise acquisition status
+        self._fem_state = None
+        self._fem_frames = 0
+        self._frames_acquired = None
+        self._frame_rate = None
+        self._acquisition_complete = None
+
+        # Initialise hv and lv enabled status
+        self._lv_enabled = 0
+
+        # Create the calibration object and associated status dict
+        self._calibrating = 0
+        self._calibration_bitmask = [0] * len(self._fems)
         self._cb = DetectorCalibration()
+        self._calibration_status = {}
+        for cb in self.CALIBRATION_AREAS:
+            self._calibration_status[cb] = [0] * len(self._fems)
 
         # Create the Excalibur parameters
         self._param = {
@@ -235,70 +363,141 @@ class HLExcaliburDetector(ExcaliburDetector):
             #                                                                     "DAC Scan",
             #                                                                     "Matrix Read"])
         }
-        self._status = {
-            'calibrating': 0,
-            'calibration': [0] * len(self._fems),
-            'lv_enabled': 0,
-            'hv_enabled': 0,
-            'sensor': {
-                'width': ExcaliburDefinitions.X_PIXELS_PER_CHIP * ExcaliburDefinitions.X_CHIPS_PER_FEM,
-                'height': ExcaliburDefinitions.Y_PIXELS_PER_CHIP *
-                          ExcaliburDefinitions.Y_CHIPS_PER_FEM * len(self._fems),
-                'bytes': 0
-            },
-            'manufacturer': 'DLS/STFC',
-            'model': 'Odin [Excalibur2]',
-            'error': '',
-            'state': HLExcaliburDetector.STATE_IDLE,
-            'fe_lv_enable': [None],
-            'fe_hv_enable': [None],
-            'pwr_p5va_vmon': [None],
-            'pwr_p5vb_vmon': [None],
-            'pwr_p5v_fem00_imon': [None],
-            'pwr_p5v_fem01_imon': [None],
-            'pwr_p5v_fem02_imon': [None],
-            'pwr_p5v_fem03_imon': [None],
-            'pwr_p5v_fem04_imon': [None],
-            'pwr_p5v_fem05_imon': [None],
-            'pwr_p48v_vmon': [None],
-            'pwr_p48v_imon': [None],
-            'pwr_p5vsup_vmon': [None],
-            'pwr_p5vsup_imon': [None],
-            'pwr_humidity_mon': [None],
-            'pwr_air_temp_mon': [None],
-            'pwr_coolant_temp_mon': [None],
-            'pwr_coolant_flow_mon': [None],
-            'pwr_p3v3_imon': [None],
-            'pwr_p1v8_imonA': [None],
-            'pwr_bias_imon': [None],
-            'pwr_p3v3_vmon': [None],
-            'pwr_p1v8_vmon': [None],
-            'pwr_bias_vmon': [None],
-            'pwr_p1v8_imonB': [None],
-            'pwr_p1v8_vmonB': [None],
-            'pwr_coolant_temp_status': [None],
-            'pwr_humidity_status': [None],
-            'pwr_coolant_flow_status': [None],
-            'pwr_air_temp_status': [None],
-            'pwr_fan_fault': [None],
-            'efuseid_c0': [0] * len(self._fems),
-            'efuseid_c1': [0] * len(self._fems),
-            'efuseid_c2': [0] * len(self._fems),
-            'efuseid_c3': [0] * len(self._fems),
-            'efuseid_c4': [0] * len(self._fems),
-            'efuseid_c5': [0] * len(self._fems),
-            'efuseid_c6': [0] * len(self._fems),
-            'efuseid_c7': [0] * len(self._fems),
-            'efuse_match': [0] * len(self._fems)
+
+        # Initialise the powercard
+        self._powercard_status = None
+        powercard_tree = self.init_powercard()
+
+        # Initialise the efuse structure
+        self._efuse_status = None
+        efuse_tree = self.init_efuse_ids()
+
+        # Initialise the supply structure
+        self._supply_status = None
+        supply_tree = self.init_supply()
+
+        # Initialise the fem structure
+        self._fem_status = None
+        fem_tree = self.init_fems()
+
+        # Initialise the parameter tree from the general status, powercard status and efuse status
+        tree = {
+            self.STR_STATUS: {
+                self.STR_STATUS_SENSOR: {
+                    self.STR_STATUS_SENSOR_WIDTH: (self.get_sensor_width, {
+                        # Meta data here
+                    }),
+                    self.STR_STATUS_SENSOR_HEIGHT: (self.get_sensor_height, {
+                        # Meta data here
+                    }),
+                    self.STR_STATUS_SENSOR_BYTES: (self.get_sensor_bytes, {
+                        # Meta data here
+                    })
+                },
+                self.STR_STATUS_MANUFACTURER: (lambda: 'DLS/STFC', {
+                    # Meta data here
+                }),
+                self.STR_STATUS_MODEL: (lambda: 'Odin [Excalibur2]', {
+                    # Meta data here
+                }),
+                self.STR_STATUS_ERROR: (self.get_error, {
+                    # Meta data here
+                }),
+                self.STR_STATUS_STATE: (self.get_state, {
+                    # Meta data here
+                }),
+                self.STR_STATUS_FEM_STATE: (self.get_fem_state, {
+                    # Meta data here
+                }),
+                self.STR_STATUS_FEM_FRAMES: (self.get_fem_frames, {
+                    # Meta data here
+                }),
+                self.STR_STATUS_FRAMES_ACQUIRED: (self.get_frames_acquired, {
+                    # Meta data here
+                }),
+                self.STR_STATUS_FRAME_RATE: (self.get_frame_rate, {
+                    # Meta data here
+                }),
+                self.STR_STATUS_ACQUISITION_COMPLETE: (self.get_acquisition_complete, {
+                    # Meta data here
+                }),
+                self.STR_STATUS_LV_ENABLED: (self.get_lv_enabled, {
+                    # Meta data here
+                }),
+                self.STR_STATUS_CALIBRATING: (self.get_calibrating_status, {
+                    # Meta data here
+                }),
+                self.STR_STATUS_CALIBRATION: (self.get_calibration_bitmask, {
+                    # Meta data here
+                }),
+                self.STR_STATUS_POWERCARD: powercard_tree,
+                self.STR_STATUS_EFUSE: efuse_tree,
+                self.STR_STATUS_SUPPLY: supply_tree,
+                self.STR_STATUS_FEM: fem_tree
+            }
         }
-        logging.debug("Status: %s", self._status)
-        self._calibration_status = {
-            'dac': [0] * len(self._fems),
-            'discl': [0] * len(self._fems),
-            'disch': [0] * len(self._fems),
-            'mask': [0] * len(self._fems),
-            'thresh': [0] * len(self._fems)
-        }
+
+        self._tree_status = ParameterTree(tree)
+
+        logging.debug("Excalibur parameter tree: %s", self._tree_status.tree)
+
+#        self._status = {
+#            'calibrating': 0,
+#            'calibration': [0] * len(self._fems),
+#            'lv_enabled': 0,
+#            'hv_enabled': 0,
+#            'sensor': {
+#                'width': ExcaliburDefinitions.X_PIXELS_PER_CHIP * ExcaliburDefinitions.X_CHIPS_PER_FEM,
+#                'height': ExcaliburDefinitions.Y_PIXELS_PER_CHIP *
+#                          ExcaliburDefinitions.Y_CHIPS_PER_FEM * len(self._fems),
+#                'bytes': 0
+#            },
+#            'manufacturer': 'DLS/STFC',
+#            'model': 'Odin [Excalibur2]',
+#            'error': '',
+#            'state': HLExcaliburDetector.STATE_IDLE,
+#            'fe_lv_enable': [None],
+#            'fe_hv_enable': [None],
+#            'pwr_p5va_vmon': [None],
+#            'pwr_p5vb_vmon': [None],
+#            'pwr_p5v_fem00_imon': [None],
+#            'pwr_p5v_fem01_imon': [None],
+#            'pwr_p5v_fem02_imon': [None],
+#            'pwr_p5v_fem03_imon': [None],
+#            'pwr_p5v_fem04_imon': [None],
+#            'pwr_p5v_fem05_imon': [None],
+#            'pwr_p48v_vmon': [None],
+#            'pwr_p48v_imon': [None],
+#            'pwr_p5vsup_vmon': [None],
+#            'pwr_p5vsup_imon': [None],
+#            'pwr_humidity_mon': [None],
+#            'pwr_air_temp_mon': [None],
+#            'pwr_coolant_temp_mon': [None],
+#            'pwr_coolant_flow_mon': [None],
+#            'pwr_p3v3_imon': [None],
+#            'pwr_p1v8_imonA': [None],
+#            'pwr_bias_imon': [None],
+#            'pwr_p3v3_vmon': [None],
+#            'pwr_p1v8_vmon': [None],
+#            'pwr_bias_vmon': [None],
+#            'pwr_p1v8_imonB': [None],
+#            'pwr_p1v8_vmonB': [None],
+#            'pwr_coolant_temp_status': [None],
+#            'pwr_humidity_status': [None],
+#            'pwr_coolant_flow_status': [None],
+#            'pwr_air_temp_status': [None],
+#            'pwr_fan_fault': [None],
+#            'efuseid_c0': [0] * len(self._fems),
+#            'efuseid_c1': [0] * len(self._fems),
+#            'efuseid_c2': [0] * len(self._fems),
+#            'efuseid_c3': [0] * len(self._fems),
+#            'efuseid_c4': [0] * len(self._fems),
+#            'efuseid_c5': [0] * len(self._fems),
+#            'efuseid_c6': [0] * len(self._fems),
+#            'efuseid_c7': [0] * len(self._fems),
+#            'efuse_match': [0] * len(self._fems)
+#        }
+#        logging.debug("Status: %s", self._status)
 
         self._executing_updates = True
         self._read_efuse_ids = False
@@ -334,7 +533,7 @@ class HLExcaliburDetector(ExcaliburDetector):
             self.slow_read()
             self._lv_toggle_required = False
             with self._param_lock:
-                if self._status['lv_enabled'] == 0:
+                if self._lv_enabled == 0:
                     # We have started up with the lv not enabled so toggle in case of detector power cycle
                     self._lv_toggle_required = True
             self._status_thread = threading.Thread(target=self.status_loop)
@@ -345,6 +544,123 @@ class HLExcaliburDetector(ExcaliburDetector):
             self._command_thread = threading.Thread(target=self.command_loop)
             self._command_thread.start()
             self.init_hardware_values()
+
+    def get_calibrating_status(self):
+        return self._calibrating
+
+    def get_calibration_bitmask(self):
+        return self._calibration_bitmask
+
+    def get_powercard_status(self, param):
+        return self._powercard_status[param]
+
+    def get_efuse_id_status(self, efuse):
+        return self._efuse_status[efuse]
+
+    def get_supply_status(self, param):
+        return self._supply_status[param]
+
+    def get_fem_status(self, param):
+        return self._fem_status[param]
+
+    def get_lv_enabled(self):
+        return self._lv_enabled
+
+    def get_sensor_width(self):
+        return self._sensor_width
+
+    def get_sensor_height(self):
+        return self._sensor_height
+
+    def get_sensor_bytes(self):
+        return self._sensor_bytes
+
+    def get_state(self):
+        return self._state
+
+    def get_error(self):
+        return self._error
+
+    def get_fem_state(self):
+        return self._fem_state
+
+    def get_fem_frames(self):
+        return self._fem_frames
+
+    def get_frames_acquired(self):
+        return self._frames_acquired
+
+    def get_frame_rate(self):
+        return self._frame_rate
+
+    def get_acquisition_complete(self):
+        return self._acquisition_complete
+
+    def init_powercard(self):
+        # First, initialise the powercard status dict from the POWERCARD_PARAMS
+        self._powercard_status = {}
+        powercard_dict = {}
+
+        for param_block in self.POWERCARD_PARAMS:
+            for param in param_block:
+                self._powercard_status[param] = [None]
+                powercard_dict[param] = (lambda p=param:self.get_powercard_status(p), {
+                        # Meta data here
+                    })
+        # Add the hv_enabled flag
+        self._powercard_status[self.STR_STATUS_POWERCARD_HV_ENABLED] = 0
+        powercard_dict[self.STR_STATUS_POWERCARD_HV_ENABLED] = (lambda p=self.STR_STATUS_POWERCARD_HV_ENABLED:self.get_powercard_status(p), {
+            # Meta data here
+        })
+
+        # Initialise the powercard parameter tree
+        powercard_tree = ParameterTree(powercard_dict)
+        return powercard_tree
+
+    def init_efuse_ids(self):
+        # Initialise the efuse status dict from the EFUSE_PARAMS
+        self._efuse_status = {}
+        efuse_dict = {}
+
+        for efuse in self.EFUSE_PARAMS:
+            self._efuse_status[efuse] = [0] * len(self._fems)
+            efuse_dict[efuse] = (lambda p=efuse:self.get_efuse_id_status(p), {
+                        # Meta data here
+                    })
+
+        # Initialise the efuse parameter tree
+        efuse_tree = ParameterTree(efuse_dict)
+        return efuse_tree
+
+    def init_supply(self):
+        # First, initialise the supply status dict from the SUPPLY_PARAMS
+        self._supply_status = {}
+        supply_dict = {}
+
+        for param in self.SUPPLY_PARAMS:
+            self._supply_status[param] = [None]
+            supply_dict[param] = (lambda p=param:self.get_supply_status(p), {
+                    # Meta data here
+                })
+
+        # Initialise the powercard parameter tree
+        supply_tree = ParameterTree(supply_dict)
+        return supply_tree
+
+    def init_fems(self):
+        # First, initialise the fem status dict from the FEM_PARAMS
+        self._fem_status = {}
+        fem_dict = {}
+
+        for param in self.FEM_PARAMS:
+            self._fem_status[param] = [None]
+            fem_dict[param] = (lambda p=param:self.get_fem_status(p), {
+                    # Meta data here
+                })
+
+        # Initialise the powercard parameter tree
+        fem_tree = ParameterTree(fem_dict)
+        return fem_tree
 
     def init_hardware_values(self):
         gain_mode = self._param['config/gain_mode']
@@ -485,19 +801,20 @@ class HLExcaliburDetector(ExcaliburDetector):
         if area is not None:
             self._calibration_status[area][fem-1] = status
         else:
-            for area in ['dac', 'discl', 'disch', 'mask', 'thresh']:
+            for area in self.CALIBRATION_AREAS:
                 self._calibration_status[area][fem - 1] = status
 
         logging.debug("Calibration: %s", self._calibration_status)
         bit = 0
         calibration_bitmask = 0
-        for area in ['dac', 'discl', 'disch', 'mask', 'thresh']:
+        for area in self.CALIBRATION_AREAS:
             calibration_bitmask += (self._calibration_status[area][fem - 1] << bit)
             bit += 1
         if calibration_bitmask == 0x1F:
             calibration_bitmask += (1 << bit)
 
-        self._status['calibration'][fem-1] = calibration_bitmask
+# TODO: REMOVE        self._status['calibration'][fem-1] = calibration_bitmask
+        self._calibration_bitmask[fem-1] = calibration_bitmask
 
     def hl_manual_dac_calibration(self, filename):
         logging.debug("Manual DAC calibration requested: %s", filename)
@@ -505,7 +822,7 @@ class HLExcaliburDetector(ExcaliburDetector):
             self.set_calibration_status(fem, 0, 'dac')
         self._cb.manual_dac_calibration(self._fems, filename)
         self.download_dac_calibration()
-        logging.debug("Status: %s", self._status)
+        logging.debug("Calibration Status: %s", self._calibration_bitmask)
 
     def hl_test_mask_calibration(self, filename):
         logging.debug("Test mask file requested: %s", filename)
@@ -513,7 +830,7 @@ class HLExcaliburDetector(ExcaliburDetector):
             self.set_calibration_status(fem, 0, 'mask')
         self._cb.manual_mask_calibration(self._fems, filename)
         self.download_test_masks()
-        logging.debug("Status: %s", self._status)
+        logging.debug("Calibration Status: %s", self._calibration_bitmask)
 
     def update_calibration(self, name, value):
         logging.debug("Update calibration requested due to %s updated to %s", name, value)
@@ -524,11 +841,13 @@ class HLExcaliburDetector(ExcaliburDetector):
         else:
             lv_enabled = 0
             with self._param_lock:
-                lv_enabled = self._status['lv_enabled']
+                lv_enabled = self._lv_enabled
             if lv_enabled == 1:
                 try:
-                    self._status['calibrating'] = 1
-                    self._status['state'] = HLExcaliburDetector.STATE_CALIBRATING
+# TODO: REMOVE                    self._status['calibrating'] = 1
+# TODO: REMOVE                    self._status['state'] = HLExcaliburDetector.STATE_CALIBRATING
+                    self._calibrating = 1
+                    self._state = HLExcaliburDetector.STATE_CALIBRATING
                     logging.info("Calibrating now...")
                     # Reset all calibration status values prior to loading a new calibration
                     for fem in self._fems:
@@ -541,15 +860,19 @@ class HLExcaliburDetector(ExcaliburDetector):
                         self._cb.load_calibration_files(self._fems)
                         self.download_dac_calibration()
                         self.download_pixel_calibration()
-                        logging.debug("Status: %s", self._status)
+# TODO: REMOVE                        logging.debug("Status: %s", self._status)
                     else:
                         logging.debug("No calibration root supplied")
-                    self._status['calibrating'] = 0
-                    self._status['state'] = HLExcaliburDetector.STATE_IDLE
+# TODO: REMOVE                    self._status['calibrating'] = 0
+# TODO: REMOVE                    self._status['state'] = HLExcaliburDetector.STATE_IDLE
+                    self._calibrating = 0
+                    self._state = HLExcaliburDetector.STATE_IDLE
                 except Exception as ex:
                     # If any exception occurs during calibration reset the status item
-                    self._status['calibrating'] = 0
-                    self._status['state'] = HLExcaliburDetector.STATE_IDLE
+# TODO: REMOVE                    self._status['calibrating'] = 0
+# TODO: REMOVE                    self._status['state'] = HLExcaliburDetector.STATE_IDLE
+                    self._calibrating = 0
+                    self._state = HLExcaliburDetector.STATE_IDLE
                     # Set the error message
                     self.set_error(str(ex))
             else:
@@ -733,7 +1056,7 @@ class HLExcaliburDetector(ExcaliburDetector):
                 if self._calibration_required:
                     try:
                         self._calibration_required = False
-                        self.update_calibration('lv_enabled', '1')
+                        self.update_calibration(self.STR_STATUS_LV_ENABLED, '1')
                     except:
                         pass
             if (datetime.now() - self._slow_update_time).seconds > 10.0:
@@ -822,15 +1145,22 @@ class HLExcaliburDetector(ExcaliburDetector):
                 response = {'value': 1}
             elif path in self._param:
                 response = self._param[path].get()
-            elif self.search_status(path) is not None:
-                response = {'value': self.search_status(path)}
-                try:
-                    response.update(super(HLExcaliburDetector, self).get(path))
-                except:
-                    # Valid to fail if the get request is for a high level item
-                    pass
             else:
-                response = super(HLExcaliburDetector, self).get(path)
+                try:
+                    logging.debug("Searching for '%s': %s", path, self._tree_status.get(path, True))
+                    param = path.split('/')[-1]
+                    response = {'value': self._tree_status.get(path, True)[param]['value']}
+                    logging.debug("Sending response: %s", response)
+                except:
+#                    if self.search_status(path) is not None:
+#                        response = {'value': self.search_status(path)}
+#                        try:
+#                            response.update(super(HLExcaliburDetector, self).get(path))
+#                        except:
+#                            # Valid to fail if the get request is for a high level item
+#                            pass
+#                    else:
+                    response = super(HLExcaliburDetector, self).get(path)
 
             return response
 
@@ -854,23 +1184,25 @@ class HLExcaliburDetector(ExcaliburDetector):
 
     def set_error(self, err):
         # Record the error message into the status
-        self._status['error'] = err
+# TODO: REMOVE        self._status['error'] = err
+        self._error = err
 
     def clear_error(self):
         # Record the error message into the status
-        self._status['error'] = ""
+# TODO: REMOVE        self._status['error'] = ""
+        self._error = ""
 
-    def search_status(self, path):
-        items = path.split('/')
-        item_dict = None
-        if items[0] == 'status':
-            try:
-                item_dict = self._status
-                for item in items[1:]:
-                    item_dict = item_dict[item]
-            except KeyError as ex:
-                item_dict = None
-        return item_dict
+#    def search_status(self, path):
+#        items = path.split('/')
+#        item_dict = None
+#        if items[0] == 'status':
+#            try:
+#                item_dict = self._status
+#                for item in items[1:]:
+#                    item_dict = item_dict[item]
+#            except KeyError as ex:
+#                item_dict = None
+#        return item_dict
 
     def fast_read(self):
         status = {}
@@ -881,7 +1213,8 @@ class HLExcaliburDetector(ExcaliburDetector):
                 bps = 2
             elif bit_depth == '24':
                 bps = 4
-            self._status['sensor']['bytes'] = self._status['sensor']['width'] * self._status['sensor']['height'] * bps
+# TODO: REMOVE            self._status['sensor']['bytes'] = self._status['sensor']['width'] * self._status['sensor']['height'] * bps
+            self._sensor_bytes = self._sensor_width * self._sensor_height * bps
 
         frame_rate = 0.0
         if not self._24bit_mode:
@@ -894,20 +1227,10 @@ class HLExcaliburDetector(ExcaliburDetector):
                 fem_params = ['frames_acquired', 'control_state']
 
                 read_params = ExcaliburReadParameter(fem_params)
-                self.read_fe_param(read_params)
-
-                while True:
-                    time.sleep(0.01)
-                    if not self.command_pending():
-                        if self._get('command_succeeded'):
-                            logging.debug("Command has succeeded")
-                        else:
-                            logging.debug("Command has failed")
-                        break
-                vals = super(HLExcaliburDetector, self).get('command')['command']['fe_param_read']['value']
+                cmd_ok, err_msg, vals = self.hl_read_params(read_params)
                 logging.debug("Raw fast read status: %s", vals)
                 # Calculate the minimum number of frames from the fems, as this will be the actual complete frame count
-                frames_acquired = min(vals['frames_acquired'])
+                frames_acquired = min(vals[self.STR_STATUS_FRAMES_ACQUIRED])
                 self._hw_frames_acquired = frames_acquired
                 #acq_completed = all(
                 #    [((state & acq_completion_state_mask) == acq_completion_state_mask) for state in vals['control_state']]
@@ -960,87 +1283,53 @@ class HLExcaliburDetector(ExcaliburDetector):
                 for fem_state in self.get('status/fem')['fem']:
                     init_state.append(fem_state['state'])
 
-                status = {'fem_state': init_state,
-                          'frames_acquired': self._frames_acquired,
-                          'fem_frames': vals['frames_acquired'],
-                          'frame_rate': frame_rate,
-                          'acquisition_complete': (not self._acquiring)}
+                status = {self.STR_STATUS_FEM_STATE: init_state,
+                          self.STR_STATUS_FRAMES_ACQUIRED: self._frames_acquired,
+                          self.STR_STATUS_FEM_FRAMES: vals[self.STR_STATUS_FRAMES_ACQUIRED],
+                          self.STR_STATUS_FRAME_RATE: frame_rate,
+                          self.STR_STATUS_ACQUISITION_COMPLETE: (not self._acquiring)}
             with self._param_lock:
-                self._status.update(status)
+                self._fem_state = status[self.STR_STATUS_FEM_STATE]
+                self._fem_frames = status[self.STR_STATUS_FEM_FRAMES]
+                self._frame_rate = status[self.STR_STATUS_FRAME_RATE]
+                self._acquisition_complete = status[self.STR_STATUS_ACQUISITION_COMPLETE]
+# TODO: REMOVE                self._status.update(status)
             logging.debug("Fast update status: %s", status)
 
     def power_card_read(self):
-        with self._comms_lock:
-            # Do not perform a slow read if an acquisition is taking place
-            if not self._acquiring:
-                # Connect to the hardware
-                if not self.connected:
-                    self.connect({'state': True})
+        for powercard_params in self.POWERCARD_PARAMS:
+            with self._comms_lock:
+                # Do not perform a slow read if an acquisition is taking place
+                if not self._acquiring:
+                    # Connect to the hardware
+                    if not self.connected:
+                        self.connect({'state': True})
 
-                powercard_params = ['fe_lv_enable',
-                                    'fe_hv_enable',
-                                    'pwr_p5va_vmon',
-                                    'pwr_p5vb_vmon',
-                                    'pwr_p5v_fem00_imon',
-                                    'pwr_p5v_fem01_imon',
-                                    'pwr_p5v_fem02_imon',
-                                    'pwr_p5v_fem03_imon',
-                                    'pwr_p5v_fem04_imon',
-                                    'pwr_p5v_fem05_imon',
-                                    'pwr_p48v_vmon',
-                                    'pwr_p48v_imon',
-                                    'pwr_p5vsup_vmon',
-                                    'pwr_p5vsup_imon',
-                                    'pwr_humidity_mon',
-                                    'pwr_air_temp_mon',
-                                    'pwr_coolant_temp_mon',
-                                    'pwr_coolant_flow_mon',
-                                    'pwr_p3v3_imon',
-                                    'pwr_p1v8_imonA',
-                                    'pwr_bias_imon',
-                                    'pwr_p3v3_vmon',
-                                    'pwr_p1v8_vmon',
-                                    'pwr_bias_vmon',
-                                    'pwr_p1v8_imonB',
-                                    'pwr_p1v8_vmonB',
-                                    'pwr_coolant_temp_status',
-                                    'pwr_humidity_status',
-                                    'pwr_coolant_flow_status',
-                                    'pwr_air_temp_status',
-                                    'pwr_fan_fault']
-                fe_params = powercard_params
-                read_params = ExcaliburReadParameter(fe_params, fem=self.powercard_fem_idx+1)
-                self.read_fe_param(read_params)
-
-                while True:
-                    time.sleep(0.1)
-                    if not self.command_pending():
-                        if self._get('command_succeeded'):
-                            logging.debug("Command has succeeded")
-                            status = super(HLExcaliburDetector, self).get('command')['command']['fe_param_read'][
-                                'value']
-                            with self._param_lock:
-                                # Check for the current HV enabled state
-                                hv_enabled = 0
-                                # Greater than hv_bias means the HV is enabled
-                                if status['pwr_bias_vmon'][0] > self._param['config/hv_bias'].value - 5.0:
-                                    hv_enabled = 1
-                                self._status['hv_enabled'] = hv_enabled
-
-                                for param in powercard_params:
-                                    if param in status:
-                                        val = status[param]
-                                        if isinstance(val, list):
-                                            self._status[param] = val[0]
-                                        else:
-                                            self._status[param] = val
-                        else:
-                            logging.error("Command has failed")
-                            with self._param_lock:
-                                for param in powercard_params:
-                                    self._status[param] = None
-                        break
-                logging.debug("Power card update status: %s", self._status)
+                    fe_params = powercard_params
+                    read_params = ExcaliburReadParameter(fe_params, fem=self.powercard_fem_idx+1)
+                    cmd_ok, err_msg, status = self.hl_read_params(read_params)
+                    if cmd_ok:
+                        with self._param_lock:
+                            for param in powercard_params:
+                                if param in status:
+                                    val = status[param]
+                                    if isinstance(val, list):
+# TODO: REMOVE                                       self._status[param] = val[0]
+                                        self._powercard_status[param] = val[0]
+                                    else:
+# TODO: REMOVE                                        self._status[param] = val
+                                        self._powercard_status[param] = val
+        
+        with self._param_lock:
+            # Check for the current HV enabled state
+            hv_enabled = 0
+            # Greater than hv_bias means the HV is enabled
+# TODO: REMOVE            if self._status['pwr_bias_vmon'] > self._param['config/hv_bias'].value - 5.0:
+            if self._powercard_status['pwr_bias_vmon'] > self._param['config/hv_bias'].value - 5.0:
+                hv_enabled = 1
+# TODO: REMOVE            self._status[self.STR_STATUS_POWERCARD_HV_ENABLED] = hv_enabled
+            self._powercard_status[self.STR_STATUS_POWERCARD_HV_ENABLED] = hv_enabled
+            logging.debug("Power card update status: %s", self._powercard_status)
 
     def slow_read(self):
         status = {}
@@ -1051,82 +1340,68 @@ class HLExcaliburDetector(ExcaliburDetector):
                 if not self.connected:
                     self.connect({'state': True})
 
-                fem_params = ['fem_local_temp', 'fem_remote_temp', 'moly_temp', 'moly_humidity']
-                supply_params = ['supply_p1v5_avdd1', 'supply_p1v5_avdd2', 'supply_p1v5_avdd3', 'supply_p1v5_avdd4',
-                                'supply_p1v5_vdd1', 'supply_p2v5_dvdd1']
+                fem_params = self.FEM_PARAMS
+                supply_params = self.SUPPLY_PARAMS
 
                 fe_params = fem_params + supply_params + ['mpx3_dac_out']
 
                 read_params = ExcaliburReadParameter(fe_params)
-                self.read_fe_param(read_params)
-
-                while True:
-                    time.sleep(0.1)
-                    if not self.command_pending():
-                        if self._get('command_succeeded'):
-                            logging.debug("Command has succeeded")
-                            status = super(HLExcaliburDetector, self).get('command')['command']['fe_param_read'][
-                                'value']
-                            with self._param_lock:
-                                lv_enabled = 1
-                                for param in fe_params:
-                                    if param in status:
-                                        val = []
-                                        if param in supply_params:
-                                            for item in status[param]:
-                                                if item != 1:
-                                                    val.append(0)
-                                                else:
-                                                    val.append(1)
+                cmd_ok, err_msg, status = self.hl_read_params(read_params)
+                if cmd_ok:
+                    with self._param_lock:
+                        lv_enabled = 1
+                        for param in fe_params:
+                            if param in status:
+                                val = []
+                                if param in supply_params:
+                                    for item in status[param]:
+                                        if item != 1:
+                                            val.append(0)
                                         else:
-                                            if param == 'moly_temp' or param == 'moly_humidity':
-                                                for item in status[param]:
-                                                    if item < 0.0:
-                                                        val.append(None)
-                                                        lv_enabled = 0
-                                                    else:
-                                                        val.append(item)
+                                            val.append(1)
+                                    self._supply_status[param] = val
+                                else:
+                                    if param == 'moly_temp' or param == 'moly_humidity':
+                                        for item in status[param]:
+                                            if item < 0.0:
+                                                val.append(None)
+                                                lv_enabled = 0
                                             else:
-                                                val = status[param]
-                                        self._status[param] = val
-                                # Catch when the lv has been enabled and attempt to re-send calibration
-                                # Also do not return the humidity right away as it has a settling time
-                                if self._status['lv_enabled'] == 0 and lv_enabled == 1:
-                                    self._calibration_required = True
-                                    self._moly_humidity_counter = 3
-                                if self._moly_humidity_counter > 0:
-                                    self._status['moly_humidity'] = self._default_status
-                                    self._moly_humidity_counter -= 1
-                                self._status['lv_enabled'] = lv_enabled
-                        else:
-                            logging.debug("Command has failed")
-                            with self._param_lock:
-                                for param in fe_params:
-                                    self._status[param] = self._default_status
-                                    logging.error('Command read_fe_param failed on following FEMS:')
-                                    fem_error_count = 0
-                                    for (idx, fem_id, error_code, error_msg) in self.get_fem_error_state():
-                                        if error_code != 0:
-                                            logging.error(
-                                                '  FEM idx {} id {} : {} : {}'.format(idx, fem_id, error_code, error_msg))
-                                            fem_error_count += 1
-                                    err_msg = 'Command read_fe_param failed on {} FEMs'.format(fem_error_count)
-                                    self.set_error(err_msg)
+                                                val.append(item)
+                                    else:
+                                        val = status[param]
+                                    self._fem_status[param] = val
+# TODO: REMOVE                                self._status[param] = val
+                        # Catch when the lv has been enabled and attempt to re-send calibration
+                        # Also do not return the humidity right away as it has a settling time
+                        if self._lv_enabled == 0 and lv_enabled == 1:
+                            self._calibration_required = True
+                            self._moly_humidity_counter = 3
+                        if self._moly_humidity_counter > 0:
+                            self._fem_status['moly_humidity'] = self._default_status
+                            self._moly_humidity_counter -= 1
+                        self._lv_enabled = lv_enabled
 
-                                    #if param in status:
-                                    #    self._status[param] = status[param]
-                        break
+                else:
+                    with self._param_lock:
+                        for param in fe_params:
+# TODO: REMOVE                            self._status[param] = self._default_status
+                            if param in supply_params:
+                                self._supply_status[param] = self._default_status
+                            if param in fem_params:
+                                self._fem_status[param] = self._default_status
 
                 if not self._read_efuse_ids:
                     # Only read the efuse IDs if the LV is enabled
-                    if self._status['lv_enabled'] == 1:
+                    if self._lv_enabled == 1:
                         response_status, efuse_dict = self.hl_efuseid_read()
-                        self._status.update(efuse_dict)
+                        self._efuse_status.update(efuse_dict)
+# TODO: REMOVE                        self._status.update(efuse_dict)
                         logging.debug("EFUSE return status: %s", response_status)
                         if response_status == 0:
                             self._read_efuse_ids = True
 
-                logging.debug("Slow update status: %s", self._status)
+# TODO: REMOVE                logging.debug("Slow update status: %s", self._status)
 
     def hl_arm_detector(self):
         # Perform all of the actions required to get the detector ready for an acquisition
@@ -1240,8 +1515,9 @@ class HLExcaliburDetector(ExcaliburDetector):
             # Set the acquiring flag
             self._acquiring = True
             self._acq_start_time = datetime.now()
-            status = {'acquisition_complete': (not self._acquiring)}
-            self._status.update(status)
+# TODO: REMOVE            status = {'acquisition_complete': (not self._acquiring)}
+# TODO: REMOVE            self._status.update(status)
+            self._acquisition_complete = not self._acquiring
             # Resolve the acquisition operating mode appropriately, handling burst and matrix read if necessary
             operation_mode = self._param['config/operation_mode']
 
@@ -1541,29 +1817,34 @@ class HLExcaliburDetector(ExcaliburDetector):
     def hl_start_acquisition(self):
         with self._comms_lock:
             self.do_command('start_acquisition', None)
-            return self.wait_for_completion()
+            return self.wait_for_write_completion()
 
     def hl_stop_acquisition(self):
         with self._comms_lock:
             self._acquiring = False
             self.do_command('stop_acquisition', None)
-            return self.wait_for_completion()
+            return self.wait_for_write_completion()
 
     def hl_do_command(self, command):
         logging.debug("Do command: {}".format(command))
         with self._comms_lock:
             self.do_command(command, None)
-            return self.wait_for_completion()
+            return self.wait_for_write_completion()
 
     def hl_write_params(self, params):
         logging.debug("Writing params: {}".format(params))
         with self._comms_lock:
+            if self._simulator is not None:
+                self._simulator.write_fe_params(params)
+                return (True, '')
             self.write_fe_param(params)
-            return self.wait_for_completion()
+            return self.wait_for_write_completion()
 
     def hl_read_params(self, params):
         values = None
         with self._comms_lock:
+            if self._simulator is not None:
+                return (True, '', self._simulator.read_fe_params(params))
             self.read_fe_param(params)
             cmd_ok, err_msg = self.wait_for_read_completion()
             if cmd_ok:
@@ -1649,36 +1930,13 @@ class HLExcaliburDetector(ExcaliburDetector):
         for (idx, state) in enumerate(fem_state):
             yield (idx, state['id'], state['error_code'], state['error_msg'])
 
-    def wait_for_completion(self):
-        succeeded = False
-        err_msg = ''
-        try:
-            while True:
-                time.sleep(0.1)
-                if not self.get('status/command_pending')['command_pending']:
-                    succeeded = self.get('status/command_succeeded')['command_succeeded']
-                    if succeeded:
-                        pass
-                    else:
-                        logging.error('Command write_fe_param failed on following FEMS:')
-                        fem_error_count = 0
-                        for (idx, fem_id, error_code, error_msg) in self.get_fem_error_state():
-                            if error_code != 0:
-                                logging.error(
-                                    '  FEM idx {} id {} : {} : {}'.format(idx, fem_id, error_code, error_msg))
-                                fem_error_count += 1
-                        err_msg = 'Command write_fe_param failed on {} FEMs'.format(fem_error_count)
-                    break
-
-        except ExcaliburDetectorError as e:
-            err_msg = str(e)
-
-        if not succeeded:
-            self.set_error(err_msg)
-
-        return succeeded, err_msg
+    def wait_for_write_completion(self):
+        return self.wait_for_completion('write_fe_param')
 
     def wait_for_read_completion(self):
+        return self.wait_for_completion('read_fe_param')
+
+    def wait_for_completion(self, wait_type):
         succeeded = False
         err_msg = ''
         try:
@@ -1689,14 +1947,14 @@ class HLExcaliburDetector(ExcaliburDetector):
                     if succeeded:
                         pass
                     else:
-                        logging.error('Command read_fe_param failed on following FEMS:')
+                        logging.error('Command {} failed on following FEMS:'.format(wait_type))
                         fem_error_count = 0
                         for (idx, fem_id, error_code, error_msg) in self.get_fem_error_state():
                             if error_code != 0:
                                 logging.error(
                                     '  FEM idx {} id {} : {} : {}'.format(idx, fem_id, error_code, error_msg))
                                 fem_error_count += 1
-                        err_msg = 'Command read_fe_param failed on {} FEMs'.format(fem_error_count)
+                        err_msg = 'Command {} failed on {} FEMs'.format(wait_type, fem_error_count)
                     break
 
         except ExcaliburDetectorError as e:
