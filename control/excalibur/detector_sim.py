@@ -53,7 +53,11 @@ class ExcaliburSimulator(object):
         'supply_p2v5_dvdd1':1,
         'mpx3_dac_out':1,
         'frames_acquired':0,
-        'control_state':0x40000000
+        'control_state':0x40000000,
+        'dac_scan_dac': 0,
+        'dac_scan_start': 0,
+        'dac_scan_stop': 0,
+        'dac_scan_step': 0
     }
 
     def __init__(self, fem_connections):
@@ -110,4 +114,7 @@ class ExcaliburSimulator(object):
                     reply[param_name].append(self._params[param_name][fem_id])
         #logging.info("SIM: Parameter Read block {}".format(reply))
         return reply
+
+    def do_command(self, command):
+        logging.info("Simulator: command received [{}]".format(command))
 
