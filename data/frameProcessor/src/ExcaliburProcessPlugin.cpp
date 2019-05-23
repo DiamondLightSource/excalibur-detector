@@ -349,6 +349,9 @@ namespace FrameProcessor
       dims[1] = image_width_;
       frame_meta.set_dimensions(dims);
 
+      // Set frame compression type to uncompressed
+      frame_meta.set_compression_type(no_compression);
+
       // Construct a new data block frame to output the reordered image
       boost::shared_ptr<Frame> data_frame;
       data_frame = boost::shared_ptr<Frame>(new DataBlockFrame(frame_meta, output_image_size));
