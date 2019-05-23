@@ -52,102 +52,6 @@ class ExcaliburReadParameter(OrderedDict):
         return self.param, self.fem, self.chip
 
 
-class ParameterType(Enum):
-    """Enumeration of all available types
-    """
-    UNKNOWN = 0
-    DICT = 1
-    LIST = 2
-    INT = 3
-    DOUBLE = 4
-    STRING = 5
-    ENUM = 6
-
-
-class Parameter(object):
-    def __init__(self, name, data_type=ParameterType.UNKNOWN, value=None, callback=None, every_time=False):
-        self._name = name
-        self._datatype = data_type
-        self._value = value
-        self._callback = callback
-        self._every_time = every_time
-
-    @property
-    def value(self):
-        return self.get()['value']
-
-    def get(self):
-        # Create the dictionary of information
-        return_value = {'value': self._value,
-                        'type': self._datatype.value
-                        }
-        return return_value
-
-    def set_value(self, value, callback=True):
-        changed = False
-        if self._value != value:
-            self._value = value
-            changed = True
-        if self._callback is not None:
-            if callback:
-                if self._every_time:
-                    self._callback(self._name, self._value)
-                elif changed:
-                    self._callback(self._name, self._value)
-
-
-class EnumParameter(Parameter):
-    def __init__(self, name, value=None, allowed_values=None, callback=None, every_time=False):
-        super(EnumParameter, self).__init__(name, data_type=ParameterType.ENUM, value=value,
-                                            callback=callback, every_time=every_time)
-        self._allowed_values = allowed_values
-
-    def get(self):
-        # Create the dictionary of information
-        return_value = super(EnumParameter, self).get()
-        if self._allowed_values is not None:
-            return_value['allowed_values'] = self._allowed_values
-        return return_value
-
-    @property
-    def index(self):
-        return self.get()['allowed_values'].index(self.value)
-
-
-class IntegerParameter(Parameter):
-    def __init__(self, name, value=None, limits=None, callback=None, every_time=False):
-        super(IntegerParameter, self).__init__(name, data_type=ParameterType.INT, value=value,
-                                               callback=callback, every_time=every_time)
-        self._limits = limits
-
-    def get(self):
-        # Create the dictionary of information
-        return_value = super(IntegerParameter, self).get()
-        if self._limits is not None:
-            return_value['limits'] = self._limits
-        return return_value
-
-
-class DoubleParameter(Parameter):
-    def __init__(self, name, value=None, limits=None, callback=None, every_time=False):
-        super(DoubleParameter, self).__init__(name, data_type=ParameterType.DOUBLE, value=value,
-                                              callback=callback, every_time=every_time)
-        self._limits = limits
-
-    def get(self):
-        # Create the dictionary of information
-        return_value = super(DoubleParameter, self).get()
-        if self._limits is not None:
-            return_value['limits'] = self._limits
-        return return_value
-
-
-class StringParameter(Parameter):
-    def __init__(self, name, value=None, callback=None, every_time=False):
-        super(StringParameter, self).__init__(name, data_type=ParameterType.STRING, value=value,
-                                              callback=callback, every_time=every_time)
-
-
 class HLExcaliburDetector(ExcaliburDetector):
     """Wraps the detector class to provide a high level interface.
 
@@ -250,6 +154,37 @@ class HLExcaliburDetector(ExcaliburDetector):
     STR_STATUS_FEM = 'fems'
     STR_STATUS_SUPPLY = 'supply'
 
+    STR_CONFIG = 'config'
+    STR_CONFIG_NUM_IMAGES = 'num_images'
+    STR_CONFIG_EXPOSURE_TIME = 'exposure_time'
+    STR_CONFIG_NUM_TEST_PULSES = 'num_test_pulses'
+    STR_CONFIG_SCAN_DAC_NUM = 'scan_dac_num'
+    STR_CONFIG_SCAN_DAC_START = 'scan_dac_start'
+    STR_CONFIG_SCAN_DAC_STOP = 'scan_dac_stop'
+    STR_CONFIG_SCAN_DAC_STEP = 'scan_dac_step'
+    STR_CONFIG_TEST_PULSE_ENABLE = 'test_pulse_enable'
+    STR_CONFIG_IMAGE_MODE = 'image_mode'
+    STR_CONFIG_OPERATION_MODE = 'operation_mode'
+    STR_CONFIG_LFSR_BYPASS = 'lfsr_bypass'
+    STR_CONFIG_READ_WRITE_MODE = 'read_write_mode'
+    STR_CONFIG_DISC_CSM_SPM = 'disc_csm_spm'
+    STR_CONFIG_EQUALIZATION_MODE = 'equalization_mode'
+    STR_CONFIG_TRIGGER_MODE = 'trigger_mode'
+    STR_CONFIG_TRIGGER_POLARITY = 'trigger_polarity'
+    STR_CONFIG_CSM_SPM_MODE = 'csm_spm_mode'
+    STR_CONFIG_COLOUR_MODE = 'colour_mode'
+    STR_CONFIG_GAIN_MODE = 'gain_mode'
+    STR_CONFIG_COUNTER_SELECT = 'counter_select'
+    STR_CONFIG_COUNTER_DEPTH = 'counter_depth'
+    STR_CONFIG_CAL_FILE_ROOT = 'cal_file_root'
+    STR_CONFIG_ENERGY_THRESHOLD = 'energy_threshold'
+    STR_CONFIG_UDP_FILE = 'udp_file'
+    STR_CONFIG_HV_BIAS = 'hv_bias'
+    STR_CONFIG_LV_ENABLE = 'lv_enable'
+    STR_CONFIG_HV_ENABLE = 'hv_enable'
+    STR_CONFIG_TEST_DAC_FILE = 'test_dac_file'
+    STR_CONFIG_TEST_MASK_FILE = 'test_mask_file'
+
     def __init__(self, fem_connections, simulated=False):
         self._simulated = simulated
         if self._simulated:
@@ -297,72 +232,35 @@ class HLExcaliburDetector(ExcaliburDetector):
             self._calibration_status[cb] = [0] * len(self._fems)
 
         # Create the Excalibur parameters
-        self._param = {
-            'api': DoubleParameter('api', 0.1),
-            'config/num_images': IntegerParameter('num_images', 1),
-            'config/exposure_time': DoubleParameter('exposure_time', 1.0),
-            'config/num_test_pulses': IntegerParameter('num_test_pulses', 0),
-            'config/scan_dac_num': IntegerParameter('scan_dac_num', 0),
-            'config/scan_dac_start': IntegerParameter('scan_dac_start', 0),
-            'config/scan_dac_stop': IntegerParameter('scan_dac_stop', 0),
-            'config/scan_dac_step': IntegerParameter('scan_dac_step', 0),
-            'config/test_pulse_enable': EnumParameter('test_pulse_enable',
-                                                      ExcaliburDefinitions.FEM_TEST_PULSE_NAMES[0],
-                                                      ExcaliburDefinitions.FEM_TEST_PULSE_NAMES),
-            'config/image_mode': EnumParameter('image_mode',
-                                               ExcaliburDefinitions.FEM_IMAGEMODE_NAMES[0],
-                                               ExcaliburDefinitions.FEM_IMAGEMODE_NAMES),
-            'config/operation_mode': EnumParameter('operation_mode',
-                                                   ExcaliburDefinitions.FEM_OPERATION_MODE_NAMES[0],
-                                                   ExcaliburDefinitions.FEM_OPERATION_MODE_NAMES),
-            'config/lfsr_bypass': EnumParameter('lfsr_bypass',
-                                                ExcaliburDefinitions.FEM_LFSR_BYPASS_MODE_NAMES[0],
-                                                ExcaliburDefinitions.FEM_LFSR_BYPASS_MODE_NAMES),
-            'config/read_write_mode': EnumParameter('read_write_mode',
-                                                    ExcaliburDefinitions.FEM_READOUT_MODE_NAMES[0],
-                                                    ExcaliburDefinitions.FEM_READOUT_MODE_NAMES),
-            'config/disc_csm_spm': EnumParameter('disc_csm_spm',
-                                                 ExcaliburDefinitions.FEM_DISCCSMSPM_NAMES[0],
-                                                 ExcaliburDefinitions.FEM_DISCCSMSPM_NAMES),
-            'config/equalization_mode': EnumParameter('equalization_mode',
-                                                      ExcaliburDefinitions.FEM_EQUALIZATION_MODE_NAMES[0],
-                                                      ExcaliburDefinitions.FEM_EQUALIZATION_MODE_NAMES),
-            'config/trigger_mode': EnumParameter('trigger_mode',
-                                                 ExcaliburDefinitions.FEM_TRIGMODE_NAMES[0],
-                                                 ExcaliburDefinitions.FEM_TRIGMODE_NAMES),
-            'config/trigger_polarity': EnumParameter('trigger_polarity',
-                                                     ExcaliburDefinitions.FEM_TRIGPOLARITY_NAMES[1],
-                                                     ExcaliburDefinitions.FEM_TRIGPOLARITY_NAMES),
-            'config/csm_spm_mode': EnumParameter('csm_spm_mode',
-                                                 ExcaliburDefinitions.FEM_CSMSPM_MODE_NAMES[0],
-                                                 ExcaliburDefinitions.FEM_CSMSPM_MODE_NAMES,
-                                                 callback=self.update_calibration),
-            'config/colour_mode': EnumParameter('colour_mode',
-                                                ExcaliburDefinitions.FEM_COLOUR_MODE_NAMES[0],
-                                                ExcaliburDefinitions.FEM_COLOUR_MODE_NAMES),
-            'config/gain_mode': EnumParameter('gain_mode',
-                                              ExcaliburDefinitions.FEM_GAIN_MODE_NAMES[0],
-                                              ExcaliburDefinitions.FEM_GAIN_MODE_NAMES,
-                                              callback=self.hl_set_gain_mode),
-            'config/counter_select': IntegerParameter('counter_select', 0),
-            'config/counter_depth': EnumParameter('counter_depth',
-                                                  '12',
-                                                  ['1', '6', '12', '24']),
-            'config/cal_file_root': StringParameter('cal_file_root', '', callback=self.update_calibration),
-            'config/energy_threshold': DoubleParameter('energy_threshold', 0.0, callback=self.update_calibration),
-            'config/udp_file': StringParameter('udp_file', ''),
-            'config/hv_bias': DoubleParameter('hv_bias', 0.0, callback=self.hl_hv_bias_set),
-            'config/lv_enable': IntegerParameter('lv_enable', 0, callback=self.hl_lv_enable, every_time=True),
-            'config/hv_enable': IntegerParameter('hv_enable', 0, callback=self.hl_hv_enable, every_time=True),
-            'config/test_dac_file': StringParameter('test_dac_file', ''),
-            'config/test_mask_file': StringParameter('test_mask_file', ''),
-
-            #["Normal",
-            #                                                                     "Burst",
-            #                                                                     "Histogram",
-            #                                                                     "DAC Scan",
-            #                                                                     "Matrix Read"])
-        }
+        self._num_images = 1
+        self._exposure_time = 1.0
+        self._num_test_pulses = 0
+        self._scan_dac_num = 0
+        self._scan_dac_start = 0
+        self._scan_dac_stop = 0
+        self._scan_dac_step = 0
+        self._test_pulse_enable = ExcaliburDefinitions.FEM_TEST_PULSE_NAMES[0]
+        self._image_mode = ExcaliburDefinitions.FEM_IMAGEMODE_NAMES[0]
+        self._operation_mode = ExcaliburDefinitions.FEM_OPERATION_MODE_NAMES[0]
+        self._lfsr_bypass = ExcaliburDefinitions.FEM_LFSR_BYPASS_MODE_NAMES[0]
+        self._read_write_mode = ExcaliburDefinitions.FEM_READOUT_MODE_NAMES[0]
+        self._disc_csm_spm = ExcaliburDefinitions.FEM_DISCCSMSPM_NAMES[0]
+        self._equalization_mode = ExcaliburDefinitions.FEM_EQUALIZATION_MODE_NAMES[0]
+        self._trigger_mode = ExcaliburDefinitions.FEM_TRIGMODE_NAMES[0]
+        self._trigger_polarity = ExcaliburDefinitions.FEM_TRIGPOLARITY_NAMES[1]
+        self._csm_spm_mode = ExcaliburDefinitions.FEM_CSMSPM_MODE_NAMES[0]
+        self._colour_mode = ExcaliburDefinitions.FEM_COLOUR_MODE_NAMES[0]
+        self._gain_mode = ExcaliburDefinitions.FEM_GAIN_MODE_NAMES[0]
+        self._counter_select = 0
+        self._counter_depth = '12'
+        self._cal_file_root = ''
+        self._energy_threshold = 0.0
+        self._udp_file = ''
+        self._hv_bias = 0.0
+        self._lv_enable = 0
+        self._hv_enable = 0
+        self._test_dac_file = ''
+        self._test_mask_file = ''
 
         # Initialise the powercard
         self._powercard_status = None
@@ -382,6 +280,9 @@ class HLExcaliburDetector(ExcaliburDetector):
 
         # Initialise the parameter tree from the general status, powercard status and efuse status
         tree = {
+            'api': (lambda: 0.1, {
+                # Meta data here
+            }),
             self.STR_STATUS: {
                 self.STR_STATUS_SENSOR: {
                     self.STR_STATUS_SENSOR_WIDTH: (self.get_sensor_width, {
@@ -434,70 +335,101 @@ class HLExcaliburDetector(ExcaliburDetector):
                 self.STR_STATUS_EFUSE: efuse_tree,
                 self.STR_STATUS_SUPPLY: supply_tree,
                 self.STR_STATUS_FEM: fem_tree
+            },
+            self.STR_CONFIG: {
+                self.STR_CONFIG_NUM_IMAGES: (self.get_num_images, self.set_num_images, {
+                    # Meta data here
+                }),
+                self.STR_CONFIG_EXPOSURE_TIME: (self.get_exposure_time, self.set_exposure_time, {
+                    # Meta data here
+                }),
+                self.STR_CONFIG_NUM_TEST_PULSES: (self.get_num_test_pulses, self.set_num_test_pulses, {
+                    # Meta data here
+                }),
+                self.STR_CONFIG_SCAN_DAC_NUM: (self.get_scan_dac_num, self.set_scan_dac_num, {
+                    # Meta data here
+                }),
+                self.STR_CONFIG_SCAN_DAC_START: (self.get_scan_dac_start, self.set_scan_dac_start, {
+                    # Meta data here
+                }),
+                self.STR_CONFIG_SCAN_DAC_STOP: (self.get_scan_dac_stop, self.set_scan_dac_stop, {
+                    # Meta data here
+                }),
+                self.STR_CONFIG_SCAN_DAC_STEP: (self.get_scan_dac_step, self.set_scan_dac_step, {
+                    # Meta data here
+                }),
+                self.STR_CONFIG_TEST_PULSE_ENABLE: (self.get_test_pulse_enable, self.set_test_pulse_enable, {
+                    'allowed_values': ExcaliburDefinitions.FEM_TEST_PULSE_NAMES
+                }),
+                self.STR_CONFIG_IMAGE_MODE: (self.get_image_mode, self.set_image_mode, {
+                    'allowed_values': ExcaliburDefinitions.FEM_IMAGEMODE_NAMES
+                }),
+                self.STR_CONFIG_OPERATION_MODE: (self.get_operation_mode, self.set_operation_mode, {
+                    'allowed_values': ExcaliburDefinitions.FEM_OPERATION_MODE_NAMES
+                }),
+                self.STR_CONFIG_LFSR_BYPASS: (self.get_lfsr_bypass, self.set_lfsr_bypass, {
+                    'allowed_values': ExcaliburDefinitions.FEM_LFSR_BYPASS_MODE_NAMES
+                }),
+                self.STR_CONFIG_READ_WRITE_MODE: (self.get_read_write_mode, self.set_read_write_mode, {
+                    'allowed_values': ExcaliburDefinitions.FEM_READOUT_MODE_NAMES
+                }),
+                self.STR_CONFIG_DISC_CSM_SPM: (self.get_disc_csm_spm, self.set_disc_csm_spm, {
+                    'allowed_values': ExcaliburDefinitions.FEM_DISCCSMSPM_NAMES
+                }),
+                self.STR_CONFIG_EQUALIZATION_MODE: (self.get_equalization_mode, self.set_equalization_mode, {
+                    'allowed_values': ExcaliburDefinitions.FEM_EQUALIZATION_MODE_NAMES
+                }),
+                self.STR_CONFIG_TRIGGER_MODE: (self.get_trigger_mode, self.set_trigger_mode, {
+                    'allowed_values': ExcaliburDefinitions.FEM_TRIGMODE_NAMES
+                }),
+                self.STR_CONFIG_TRIGGER_POLARITY: (self.get_trigger_polarity, self.set_trigger_polarity, {
+                    'allowed_values': ExcaliburDefinitions.FEM_TRIGPOLARITY_NAMES
+                }),
+                self.STR_CONFIG_CSM_SPM_MODE: (self.get_csm_spm_mode, self.set_csm_spm_mode, {
+                    'allowed_values': ExcaliburDefinitions.FEM_CSMSPM_MODE_NAMES
+                }),
+                self.STR_CONFIG_COLOUR_MODE: (self.get_colour_mode, self.set_colour_mode, {
+                    'allowed_values': ExcaliburDefinitions.FEM_COLOUR_MODE_NAMES
+                }),
+                self.STR_CONFIG_GAIN_MODE: (self.get_gain_mode, self.set_gain_mode, {
+                    'allowed_values': ExcaliburDefinitions.FEM_GAIN_MODE_NAMES
+                }),
+                self.STR_CONFIG_COUNTER_SELECT: (self.get_counter_select, self.set_counter_select, {
+                    # Meta data here
+                }),
+                self.STR_CONFIG_COUNTER_DEPTH: (self.get_counter_depth, self.set_counter_depth, {
+                    'allowed_values': ['1', '6', '12', '24']
+                }),
+                self.STR_CONFIG_CAL_FILE_ROOT: (self.get_cal_file_root, self.set_cal_file_root, {
+                    # Meta data here
+                }),
+                self.STR_CONFIG_ENERGY_THRESHOLD: (self.get_energy_threshold, self.set_energy_threshold, {
+                    # Meta data here
+                }),
+                self.STR_CONFIG_UDP_FILE: (self.get_udp_file, self.set_udp_file, {
+                    # Meta data here
+                }),
+                self.STR_CONFIG_HV_BIAS: (self.get_hv_bias, self.set_hv_bias, {
+                    # Meta data here
+                }),
+                self.STR_CONFIG_LV_ENABLE: (self.get_lv_enable, self.set_lv_enable, {
+                    # Meta data here
+                }),
+                self.STR_CONFIG_HV_ENABLE: (self.get_hv_enable, self.set_hv_enable, {
+                    # Meta data here
+                }),
+                self.STR_CONFIG_TEST_DAC_FILE: (self.get_test_dac_file, self.set_test_dac_file, {
+                    # Meta data here
+                }),
+                self.STR_CONFIG_TEST_MASK_FILE: (self.get_test_mask_file, self.set_test_dac_file, {
+                    # Meta data here
+                })
             }
         }
 
         self._tree_status = ParameterTree(tree)
 
         logging.debug("Excalibur parameter tree: %s", self._tree_status.tree)
-
-#        self._status = {
-#            'calibrating': 0,
-#            'calibration': [0] * len(self._fems),
-#            'lv_enabled': 0,
-#            'hv_enabled': 0,
-#            'sensor': {
-#                'width': ExcaliburDefinitions.X_PIXELS_PER_CHIP * ExcaliburDefinitions.X_CHIPS_PER_FEM,
-#                'height': ExcaliburDefinitions.Y_PIXELS_PER_CHIP *
-#                          ExcaliburDefinitions.Y_CHIPS_PER_FEM * len(self._fems),
-#                'bytes': 0
-#            },
-#            'manufacturer': 'DLS/STFC',
-#            'model': 'Odin [Excalibur2]',
-#            'error': '',
-#            'state': HLExcaliburDetector.STATE_IDLE,
-#            'fe_lv_enable': [None],
-#            'fe_hv_enable': [None],
-#            'pwr_p5va_vmon': [None],
-#            'pwr_p5vb_vmon': [None],
-#            'pwr_p5v_fem00_imon': [None],
-#            'pwr_p5v_fem01_imon': [None],
-#            'pwr_p5v_fem02_imon': [None],
-#            'pwr_p5v_fem03_imon': [None],
-#            'pwr_p5v_fem04_imon': [None],
-#            'pwr_p5v_fem05_imon': [None],
-#            'pwr_p48v_vmon': [None],
-#            'pwr_p48v_imon': [None],
-#            'pwr_p5vsup_vmon': [None],
-#            'pwr_p5vsup_imon': [None],
-#            'pwr_humidity_mon': [None],
-#            'pwr_air_temp_mon': [None],
-#            'pwr_coolant_temp_mon': [None],
-#            'pwr_coolant_flow_mon': [None],
-#            'pwr_p3v3_imon': [None],
-#            'pwr_p1v8_imonA': [None],
-#            'pwr_bias_imon': [None],
-#            'pwr_p3v3_vmon': [None],
-#            'pwr_p1v8_vmon': [None],
-#            'pwr_bias_vmon': [None],
-#            'pwr_p1v8_imonB': [None],
-#            'pwr_p1v8_vmonB': [None],
-#            'pwr_coolant_temp_status': [None],
-#            'pwr_humidity_status': [None],
-#            'pwr_coolant_flow_status': [None],
-#            'pwr_air_temp_status': [None],
-#            'pwr_fan_fault': [None],
-#            'efuseid_c0': [0] * len(self._fems),
-#            'efuseid_c1': [0] * len(self._fems),
-#            'efuseid_c2': [0] * len(self._fems),
-#            'efuseid_c3': [0] * len(self._fems),
-#            'efuseid_c4': [0] * len(self._fems),
-#            'efuseid_c5': [0] * len(self._fems),
-#            'efuseid_c6': [0] * len(self._fems),
-#            'efuseid_c7': [0] * len(self._fems),
-#            'efuse_match': [0] * len(self._fems)
-#        }
-#        logging.debug("Status: %s", self._status)
 
         self._executing_updates = True
         self._read_efuse_ids = False
@@ -524,7 +456,7 @@ class HLExcaliburDetector(ExcaliburDetector):
         self._24bit_mode = False
         self._24bit_acquiring = False
         self._24bit_params = None
-        self._counter_select = 0
+        #self._counter_select = 0
         self._acquisition_loops = 0
         # End of 24 bit mode
 
@@ -544,6 +476,180 @@ class HLExcaliburDetector(ExcaliburDetector):
             self._command_thread = threading.Thread(target=self.command_loop)
             self._command_thread.start()
             self.init_hardware_values()
+
+    def get_num_images(self):
+        return self._num_images
+
+    def set_num_images(self, value):
+        self._num_images = value
+
+    def get_exposure_time(self):
+        return self._exposure_time
+
+    def set_exposure_time(self, value):
+        self._exposure_time = value
+
+    def get_num_test_pulses(self):
+        return self._num_test_pulses
+
+    def set_num_test_pulses(self, value):
+        self._num_test_pulses = value
+
+    def get_scan_dac_num(self):
+        return self._scan_dac_num
+
+    def set_scan_dac_num(self, value):
+        self._scan_dac_num = value
+
+    def get_scan_dac_start(self):
+        return self._scan_dac_start
+
+    def set_scan_dac_start(self, value):
+        self._scan_dac_start = value
+
+    def get_scan_dac_stop(self):
+        return self._scan_dac_stop
+
+    def set_scan_dac_stop(self, value):
+        self._scan_dac_stop = value
+
+    def get_scan_dac_step(self):
+        return self._scan_dac_step
+
+    def set_scan_dac_step(self, value):
+        self._scan_dac_step = value
+
+    def get_test_pulse_enable(self):
+        return self._test_pulse_enable
+
+    def set_test_pulse_enable(self, value):
+        self._test_pulse_enable = value
+
+    def get_image_mode(self):
+        return self._image_mode
+
+    def set_image_mode(self, value):
+        self._image_mode = value
+
+    def get_operation_mode(self):
+        return self._operation_mode
+
+    def set_operation_mode(self, value):
+        self._operation_mode = value
+    
+    def get_lfsr_bypass(self):
+        return self._lfsr_bypass
+
+    def set_lfsr_bypass(self, value):
+        self._lfsr_bypass = value
+    
+    def get_read_write_mode(self):
+        return self._read_write_mode
+
+    def set_read_write_mode(self, value):
+        self._read_write_mode = value
+
+    def get_disc_csm_spm(self):
+        return self._disc_csm_spm
+
+    def set_disc_csm_spm(self, value):
+        self._disc_csm_spm = value
+
+    def get_equalization_mode(self):
+        return self._equalization_mode
+
+    def set_equalization_mode(self, value):
+        self._equalization_mode = value
+
+    def get_trigger_mode(self):
+        return self._equalization_mode
+
+    def set_trigger_mode(self, value):
+        self._trigger_mode = value
+
+    def get_trigger_polarity(self):
+        return self._trigger_polarity
+
+    def set_trigger_polarity(self, value):
+        self._trigger_polarity = value
+
+    def get_csm_spm_mode(self):
+        return self._csm_spm_mode
+
+    def set_csm_spm_mode(self, value):
+        self._csm_spm_mode = value
+    
+    def get_colour_mode(self):
+        return self._colour_mode
+
+    def set_colour_mode(self, value):
+        self._colour_mode = value
+
+    def get_gain_mode(self):
+        return self._gain_mode
+
+    def set_gain_mode(self, value):
+        self._gain_mode = value
+
+    def get_counter_select(self):
+        return self._counter_select
+
+    def set_counter_select(self, value):
+        self._counter_select = value
+
+    def get_counter_depth(self):
+        return self._counter_depth
+
+    def set_counter_depth(self, value):
+        self._counter_depth = value
+
+    def get_cal_file_root(self):
+        return self._cal_file_root
+
+    def set_cal_file_root(self, value):
+        self._cal_file_root = value
+
+    def get_energy_threshold(self):
+        return self._energy_threshold
+
+    def set_energy_threshold(self, value):
+        self._energy_threshold = value
+
+    def get_udp_file(self):
+        return self._udp_file
+
+    def set_udp_file(self, value):
+        self._udp_file = value
+
+    def get_hv_bias(self):
+        return self._hv_bias
+
+    def set_hv_bias(self, value):
+        self._hv_bias = value
+
+    def get_lv_enable(self):
+        return self._lv_enable
+
+    def set_lv_enable(self, value):
+        self._lv_enable = value
+
+    def get_hv_enable(self):
+        return self._hv_enable
+
+    def set_hv_enable(self, value):
+        self._hv_enable = value
+
+    def get_test_dac_file(self):
+        return self._test_dac_file
+
+    def set_test_dac_file(self, value):
+        self._test_dac_file = value
+
+    def get_test_mask_file(self):
+        return self._test_mask_file
+
+    def set_test_mask_file(self, value):
+        self._test_mask_file = value
 
     def get_calibrating_status(self):
         return self._calibrating
@@ -663,21 +769,19 @@ class HLExcaliburDetector(ExcaliburDetector):
         return fem_tree
 
     def init_hardware_values(self):
-        gain_mode = self._param['config/gain_mode']
-        self.hl_set_gain_mode('config/gain_mode', gain_mode.value)
+        self.hl_set_gain_mode()
 
-    def hl_set_gain_mode(self, name, value):
+    def hl_set_gain_mode(self):
         with self._comms_lock:
             # Initialise the detector parameters
             write_params = []
-            gain_mode = self._param['config/gain_mode']
-            logging.debug('  Setting ASIC gain mode to {} '.format(gain_mode.value))
-            write_params.append(ExcaliburParameter('mpx3_gainmode', [[gain_mode.index]]))
+            logging.info('  Setting ASIC gain mode to {} '.format(self._gain_mode))
+            write_params.append(ExcaliburParameter('mpx3_gainmode', [[ExcaliburDefinitions.FEM_GAIN_MODE_NAMES.index(self._gain_mode)]]))
             self.hl_write_params(write_params)
-            self.update_calibration(name, value)
+            self.update_calibration('mpx3_gainmode', self._gain_mode)
 
     def hl_load_udp_config(self, name, filename):
-        logging.debug("Loading UDP configuration [{}] from file {}".format(name, filename))
+        logging.info("Loading UDP configuration [{}] from file {}".format(name, filename))
 
         try:
             with open(filename) as config_file:
@@ -707,7 +811,6 @@ class HLExcaliburDetector(ExcaliburDetector):
                 'ip: {ipaddr:16s} mac: {mac:s} port: {port:5d} offset: {dest_port_offset:d}'.format(
                     idx=idx, **fem)
             )
-
         udp_params = []
         num_fems = len(self._fems)
         # Append per-FEM UDP source parameters, truncating to number of FEMs present in system
@@ -789,9 +892,12 @@ class HLExcaliburDetector(ExcaliburDetector):
         udp_params.append(ExcaliburParameter('farm_mode_num_dests', [[farm_mode_num_dests]]))
 
         # Write all the parameters to system
-        logging.debug('Writing UDP configuration parameters to system')
-        self.hl_write_params(udp_params)
-        logging.debug('UDP configuration complete')
+        logging.info('Writing UDP configuration parameters to system')
+        complete, msg = self.hl_write_params(udp_params)
+        if complete:
+            logging.info('UDP configuration complete')
+        else:
+            logging.error('UDP configuration failed')
 
     def shutdown(self):
         self._executing_updates = False
@@ -813,7 +919,6 @@ class HLExcaliburDetector(ExcaliburDetector):
         if calibration_bitmask == 0x1F:
             calibration_bitmask += (1 << bit)
 
-# TODO: REMOVE        self._status['calibration'][fem-1] = calibration_bitmask
         self._calibration_bitmask[fem-1] = calibration_bitmask
 
     def hl_manual_dac_calibration(self, filename):
@@ -844,39 +949,32 @@ class HLExcaliburDetector(ExcaliburDetector):
                 lv_enabled = self._lv_enabled
             if lv_enabled == 1:
                 try:
-# TODO: REMOVE                    self._status['calibrating'] = 1
-# TODO: REMOVE                    self._status['state'] = HLExcaliburDetector.STATE_CALIBRATING
                     self._calibrating = 1
                     self._state = HLExcaliburDetector.STATE_CALIBRATING
                     logging.info("Calibrating now...")
                     # Reset all calibration status values prior to loading a new calibration
                     for fem in self._fems:
                         self.set_calibration_status(fem, 0)
-                    if self._param['config/cal_file_root'].value != '':
-                        self._cb.set_file_root(self._param['config/cal_file_root'].value)
-                        self._cb.set_csm_spm_mode(self._param['config/csm_spm_mode'].index)
-                        self._cb.set_gain_mode(self._param['config/gain_mode'].index)
-                        self._cb.set_energy_threshold(self._param['config/energy_threshold'].value)
+                    if self._cal_file_root != '':
+                        self._cb.set_file_root(self._cal_file_root)
+                        self._cb.set_csm_spm_mode(ExcaliburDefinitions.FEM_CSMSPM_MODE_NAMES.index(self._csm_spm_mode))
+                        self._cb.set_gain_mode(ExcaliburDefinitions.FEM_GAIN_MODE_NAMES.index(self._gain_mode))
+                        self._cb.set_energy_threshold(self._energy_threshold)
                         self._cb.load_calibration_files(self._fems)
                         self.download_dac_calibration()
                         self.download_pixel_calibration()
-# TODO: REMOVE                        logging.debug("Status: %s", self._status)
                     else:
-                        logging.debug("No calibration root supplied")
-# TODO: REMOVE                    self._status['calibrating'] = 0
-# TODO: REMOVE                    self._status['state'] = HLExcaliburDetector.STATE_IDLE
+                        logging.info("No calibration root supplied")
                     self._calibrating = 0
                     self._state = HLExcaliburDetector.STATE_IDLE
                 except Exception as ex:
                     # If any exception occurs during calibration reset the status item
-# TODO: REMOVE                    self._status['calibrating'] = 0
-# TODO: REMOVE                    self._status['state'] = HLExcaliburDetector.STATE_IDLE
                     self._calibrating = 0
                     self._state = HLExcaliburDetector.STATE_IDLE
                     # Set the error message
                     self.set_error(str(ex))
             else:
-                logging.debug("Not updating calibration as LV is not enabled")
+                logging.info("Not updating calibration as LV is not enabled")
 
     def get_chip_ids(self, fem_id):
         # Return either the default chip IDs or reversed chip IDs depending on the FEM
@@ -893,7 +991,7 @@ class HLExcaliburDetector(ExcaliburDetector):
             logging.debug("%s  %s", dac_name, dac_param)
             dac_vals = []
             for fem in self._fems:
-                logging.debug("Downloading FEM # {}".format(fem))
+                logging.info("Downloading FEM # {}".format(fem))
                 #fem_vals = [self._cb.get_dac(fem).dacs(fem, chip_id)[dac_name] for chip_id in self.get_chip_ids(fem)]
                 fem_vals = [self._cb.get_dac(fem).dacs(fem, chip_id)[dac_name] for chip_id in ExcaliburDefinitions.FEM_DEFAULT_CHIP_IDS]
                 dac_vals.append(fem_vals)
@@ -1071,11 +1169,7 @@ class HLExcaliburDetector(ExcaliburDetector):
             time.sleep(0.1)
 
     def queue_command(self, command):
-        #if self._command_lock.acquire(False):
         self._command_queue.put(command, block=False)
-        #    self._command_lock.release()
-        #else:
-        #    self.set_error("Cannot submit command whilst another is active")
 
     def command_loop(self):
         running = True
@@ -1096,39 +1190,33 @@ class HLExcaliburDetector(ExcaliburDetector):
     def execute_command(self, command):
         path = command['path']
         data = command['data']
+        if isinstance(data, unicode):
+            data = data.encode("utf-8")
         try:
-            if path in self._param:
-                self._param[path].set_value(data)
-            elif path == 'command/initialise':
-                # Initialise the FEMs
-                logging.debug('Initialise has been called')
-                self.hl_initialise()
-            elif path == 'command/force_calibrate':
-                self.update_calibration('reload', 'manual')
-            elif path == 'command/configure_dac':
-                # Configure the DAC
-                dac_file = self._param['config/test_dac_file'].value
-                logging.debug('Manual DAC calibration has been called with file: %s', dac_file)
-                self.hl_manual_dac_calibration(dac_file)
-            elif path == 'command/configure_mask':
-                # Apply a test maks
-                mask_file = self._param['config/test_mask_file'].value
-                logging.debug('Manual mask file download has been called with file: %s', mask_file)
-                self.hl_test_mask_calibration(mask_file)
-            elif path == 'command/24bit_acquire':
-                # Perform a 24 bit acquisition loop
-                self.hl_do_24bit_acquisition()
-#            elif path == 'command/start_acquisition':
-#                # Starting an acquisition!
-#                logging.debug('Start acquisition has been called')
-#                self.hl_arm_detector()
-#                self.do_acquisition()
-#            elif path == 'command/stop_acquisition':
-#                # Starting an acquisition!
-#                logging.debug('Abort acquisition has been called')
-#                self.hl_stop_acquisition()
-            else:
-                super(HLExcaliburDetector, self).set(path, data)
+            try:
+                self._tree_status.set(path, data)
+            except Exception as e:
+                if path == 'command/initialise':
+                    # Initialise the FEMs
+                    logging.debug('Initialise has been called')
+                    self.hl_initialise()
+                elif path == 'command/force_calibrate':
+                    self.update_calibration('reload', 'manual')
+                elif path == 'command/configure_dac':
+                    # Configure the DAC
+                    dac_file = self._test_dac_file
+                    logging.debug('Manual DAC calibration has been called with file: %s', dac_file)
+                    self.hl_manual_dac_calibration(dac_file)
+                elif path == 'command/configure_mask':
+                    # Apply a test maks
+                    mask_file = self._test_mask_file
+                    logging.debug('Manual mask file download has been called with file: %s', mask_file)
+                    self.hl_test_mask_calibration(mask_file)
+                elif path == 'command/24bit_acquire':
+                    # Perform a 24 bit acquisition loop
+                    self.hl_do_24bit_acquisition()
+                else:
+                    super(HLExcaliburDetector, self).set(path, data)
         except Exception as ex:
             self.set_error(str(ex))
             raise ExcaliburDetectorError(str(ex))
@@ -1143,23 +1231,13 @@ class HLExcaliburDetector(ExcaliburDetector):
                 response = {'value': 1}
             elif path == 'command/configure_mask':
                 response = {'value': 1}
-            elif path in self._param:
-                response = self._param[path].get()
             else:
                 try:
                     logging.debug("Searching for '%s': %s", path, self._tree_status.get(path, True))
                     param = path.split('/')[-1]
-                    response = {'value': self._tree_status.get(path, True)[param]['value']}
+                    response = self._tree_status.get(path, True)[param]
                     logging.debug("Sending response: %s", response)
                 except:
-#                    if self.search_status(path) is not None:
-#                        response = {'value': self.search_status(path)}
-#                        try:
-#                            response.update(super(HLExcaliburDetector, self).get(path))
-#                        except:
-#                            # Valid to fail if the get request is for a high level item
-#                            pass
-#                    else:
                     response = super(HLExcaliburDetector, self).get(path)
 
             return response
@@ -1184,36 +1262,22 @@ class HLExcaliburDetector(ExcaliburDetector):
 
     def set_error(self, err):
         # Record the error message into the status
-# TODO: REMOVE        self._status['error'] = err
+        logging.error(err)
         self._error = err
 
     def clear_error(self):
         # Record the error message into the status
-# TODO: REMOVE        self._status['error'] = ""
         self._error = ""
-
-#    def search_status(self, path):
-#        items = path.split('/')
-#        item_dict = None
-#        if items[0] == 'status':
-#            try:
-#                item_dict = self._status
-#                for item in items[1:]:
-#                    item_dict = item_dict[item]
-#            except KeyError as ex:
-#                item_dict = None
-#        return item_dict
 
     def fast_read(self):
         status = {}
         with self._param_lock:
-            bit_depth = self._param['config/counter_depth'].value
+            bit_depth = self._counter_depth
             bps = 1
             if bit_depth == '12':
                 bps = 2
             elif bit_depth == '24':
                 bps = 4
-# TODO: REMOVE            self._status['sensor']['bytes'] = self._status['sensor']['width'] * self._status['sensor']['height'] * bps
             self._sensor_bytes = self._sensor_width * self._sensor_height * bps
 
         frame_rate = 0.0
@@ -1265,7 +1329,7 @@ class HLExcaliburDetector(ExcaliburDetector):
                             frame_rate = 0.0
 
                         # We can only time out if we are not waiting for triggers
-                        if self._param['config/trigger_mode'].index == ExcaliburDefinitions.FEM_TRIGMODE_INTERNAL:
+                        if ExcaliburDefinitions.FEM_TRIGMODE_NAMES.index(self._trigger_mode) == ExcaliburDefinitions.FEM_TRIGMODE_INTERNAL:
                             delta_t = (datetime.now() - self._acq_start_time).seconds
                             # Work out the worst case for number of expected frames (assuming 25% plus 5 second startup)
                             delta_t -= 5.0
@@ -1293,7 +1357,6 @@ class HLExcaliburDetector(ExcaliburDetector):
                 self._fem_frames = status[self.STR_STATUS_FEM_FRAMES]
                 self._frame_rate = status[self.STR_STATUS_FRAME_RATE]
                 self._acquisition_complete = status[self.STR_STATUS_ACQUISITION_COMPLETE]
-# TODO: REMOVE                self._status.update(status)
             logging.debug("Fast update status: %s", status)
 
     def power_card_read(self):
@@ -1314,20 +1377,16 @@ class HLExcaliburDetector(ExcaliburDetector):
                                 if param in status:
                                     val = status[param]
                                     if isinstance(val, list):
-# TODO: REMOVE                                       self._status[param] = val[0]
                                         self._powercard_status[param] = val[0]
                                     else:
-# TODO: REMOVE                                        self._status[param] = val
                                         self._powercard_status[param] = val
         
         with self._param_lock:
             # Check for the current HV enabled state
             hv_enabled = 0
             # Greater than hv_bias means the HV is enabled
-# TODO: REMOVE            if self._status['pwr_bias_vmon'] > self._param['config/hv_bias'].value - 5.0:
-            if self._powercard_status['pwr_bias_vmon'] > self._param['config/hv_bias'].value - 5.0:
+            if self._powercard_status['pwr_bias_vmon'] > self._hv_bias - 5.0:
                 hv_enabled = 1
-# TODO: REMOVE            self._status[self.STR_STATUS_POWERCARD_HV_ENABLED] = hv_enabled
             self._powercard_status[self.STR_STATUS_POWERCARD_HV_ENABLED] = hv_enabled
             logging.debug("Power card update status: %s", self._powercard_status)
 
@@ -1371,7 +1430,6 @@ class HLExcaliburDetector(ExcaliburDetector):
                                     else:
                                         val = status[param]
                                     self._fem_status[param] = val
-# TODO: REMOVE                                self._status[param] = val
                         # Catch when the lv has been enabled and attempt to re-send calibration
                         # Also do not return the humidity right away as it has a settling time
                         if self._lv_enabled == 0 and lv_enabled == 1:
@@ -1385,7 +1443,6 @@ class HLExcaliburDetector(ExcaliburDetector):
                 else:
                     with self._param_lock:
                         for param in fe_params:
-# TODO: REMOVE                            self._status[param] = self._default_status
                             if param in supply_params:
                                 self._supply_status[param] = self._default_status
                             if param in fem_params:
@@ -1396,12 +1453,9 @@ class HLExcaliburDetector(ExcaliburDetector):
                     if self._lv_enabled == 1:
                         response_status, efuse_dict = self.hl_efuseid_read()
                         self._efuse_status.update(efuse_dict)
-# TODO: REMOVE                        self._status.update(efuse_dict)
                         logging.debug("EFUSE return status: %s", response_status)
                         if response_status == 0:
                             self._read_efuse_ids = True
-
-# TODO: REMOVE                logging.debug("Slow update status: %s", self._status)
 
     def hl_arm_detector(self):
         # Perform all of the actions required to get the detector ready for an acquisition
@@ -1409,8 +1463,7 @@ class HLExcaliburDetector(ExcaliburDetector):
             self.clear_error()
 
             # Start by downloading the UDP configuration
-            self.hl_load_udp_config('arming', self._param['config/udp_file'].value)
-
+            self.hl_load_udp_config('arming', self._udp_file)
 
     def hl_do_dac_scan(self):
 
@@ -1419,26 +1472,26 @@ class HLExcaliburDetector(ExcaliburDetector):
         # Build a list of parameters to be written toset up the DAC scan
         scan_params = []
 
-        scan_dac = self._param['config/scan_dac_num'].value
+        scan_dac = self._scan_dac_num
         logging.info('  Setting scan DAC to {}'.format(scan_dac))
         scan_params.append(ExcaliburParameter('dac_scan_dac', [[scan_dac]]))
 
-        scan_start = self._param['config/scan_dac_start'].value
+        scan_start = self._scan_dac_start
         logging.info('  Setting scan start value to {}'.format(scan_start))
         scan_params.append(ExcaliburParameter('dac_scan_start', [[scan_start]]))
 
-        scan_stop = self._param['config/scan_dac_stop'].value
+        scan_stop = self._scan_dac_stop
         logging.info('  Setting scan stop value to {}'.format(scan_stop))
         scan_params.append(ExcaliburParameter('dac_scan_stop', [[scan_stop]]))
 
-        scan_step = self._param['config/scan_dac_step'].value
+        scan_step = self._scan_dac_step
         logging.info('  Setting scan step size to {}'.format(scan_step))
         scan_params.append(ExcaliburParameter('dac_scan_step', [[scan_step]]))
 
         # Record the acquisition exposure time
-        self._acq_exposure = self._param['config/exposure_time'].value
+        self._acq_exposure = self._exposure_time
 
-        acquisition_time = int(self._param['config/exposure_time'].value * 1000.0)
+        acquisition_time = int(self._exposure_time * 1000.0)
         logging.info('  Setting acquisition time to {} ms'.format(acquisition_time))
         scan_params.append(ExcaliburParameter('acquisition_time', [[acquisition_time]]))
 
@@ -1449,31 +1502,31 @@ class HLExcaliburDetector(ExcaliburDetector):
         ))
         scan_params.append(ExcaliburParameter('mpx3_readwritemode', [[readout_mode]]))
 
-        colour_mode = self._param['config/colour_mode']
-        logging.info('  Setting ASIC colour mode to {} '.format(colour_mode.value))
-        scan_params.append(ExcaliburParameter('mpx3_colourmode', [[colour_mode.index]]))
+        colour_mode = ExcaliburDefinitions.FEM_COLOUR_MODE_NAMES.index(self._colour_mode)
+        logging.info('  Setting ASIC colour mode to {} '.format(self._colour_mode))
+        scan_params.append(ExcaliburParameter('mpx3_colourmode', [[colour_mode]]))
 
-        csmspm_mode = self._param['config/csm_spm_mode']
-        logging.info('  Setting ASIC pixel mode to {} '.format(csmspm_mode.value))
-        scan_params.append(ExcaliburParameter('mpx3_csmspmmode', [[csmspm_mode.index]]))
+        csmspm_mode = ExcaliburDefinitions.FEM_CSMSPM_MODE_NAMES.index(self._csm_spm_mode)
+        logging.info('  Setting ASIC pixel mode to {} '.format(self._csm_spm_mode))
+        scan_params.append(ExcaliburParameter('mpx3_csmspmmode', [[csmspm_mode]]))
 
-        disc_csm_spm = self._param['config/disc_csm_spm']
-        logging.info('  Setting ASIC discriminator output mode to {} '.format(disc_csm_spm.value))
-        scan_params.append(ExcaliburParameter('mpx3_disccsmspm', [[disc_csm_spm.index]]))
+        disc_csm_spm = ExcaliburDefinitions.FEM_DISCCSMSPM_NAMES.index(self._disc_csm_spm)
+        logging.info('  Setting ASIC discriminator output mode to {} '.format(self._disc_csm_spm))
+        scan_params.append(ExcaliburParameter('mpx3_disccsmspm', [[disc_csm_spm]]))
 
-        equalization_mode = self._param['config/equalization_mode']
-        logging.info('  Setting ASIC equalization mode to {} '.format(equalization_mode.value))
-        scan_params.append(ExcaliburParameter('mpx3_equalizationmode', [[equalization_mode.index]]))
+        equalization_mode = ExcaliburDefinitions.FEM_EQUALIZATION_MODE_NAMES.index(self._equalization_mode)
+        logging.info('  Setting ASIC equalization mode to {} '.format(self._equalization_mode))
+        scan_params.append(ExcaliburParameter('mpx3_equalizationmode', [[equalization_mode]]))
 
-        gain_mode = self._param['config/gain_mode']
-        logging.info('  Setting ASIC gain mode to {} '.format(gain_mode.value))
-        scan_params.append(ExcaliburParameter('mpx3_gainmode', [[gain_mode.index]]))
+        gain_mode = ExcaliburDefinitions.FEM_GAIN_MODE_NAMES.index(self._gain_mode)
+        logging.info('  Setting ASIC gain mode to {} '.format(self._gain_mode))
+        scan_params.append(ExcaliburParameter('mpx3_gainmode', [[gain_mode]]))
 
-        counter_select = self._param['config/counter_select'].value
+        counter_select = self._counter_select
         logging.info('  Setting ASIC counter select to {} '.format(counter_select))
         scan_params.append(ExcaliburParameter('mpx3_counterselect', [[counter_select]]))
 
-        counter_depth = self._param['config/counter_depth'].value
+        counter_depth = self._counter_depth
         logging.info('  Setting ASIC counter depth to {} bits'.format(counter_depth))
         scan_params.append(ExcaliburParameter('mpx3_counterdepth',
                                                [[ExcaliburDefinitions.FEM_COUNTER_DEPTH_MAP[counter_depth]]]))
@@ -1494,16 +1547,16 @@ class HLExcaliburDetector(ExcaliburDetector):
         scan_params.append(ExcaliburParameter('datareceiver_enable', [[0]]))
 
         # Write all the parameters to system
-        logging.debug('Writing configuration parameters to system {}'.format(str(scan_params)))
+        logging.info('Writing configuration parameters to system {}'.format(str(scan_params)))
         self.hl_write_params(scan_params)
 
         self._frame_start_count = 0
         self._frame_count_time = None
 
         # Send start acquisition command
-        logging.debug('Sending start acquisition command')
+        logging.info('Sending start acquisition command')
         self.hl_start_acquisition()
-        logging.debug('Start acquisition completed')
+        logging.info('Start acquisition completed')
 
     def do_acquisition(self):
         with self._comms_lock:
@@ -1515,29 +1568,18 @@ class HLExcaliburDetector(ExcaliburDetector):
             # Set the acquiring flag
             self._acquiring = True
             self._acq_start_time = datetime.now()
-# TODO: REMOVE            status = {'acquisition_complete': (not self._acquiring)}
-# TODO: REMOVE            self._status.update(status)
             self._acquisition_complete = not self._acquiring
             # Resolve the acquisition operating mode appropriately, handling burst and matrix read if necessary
-            operation_mode = self._param['config/operation_mode']
+            operation_mode = ExcaliburDefinitions.FEM_OPERATION_MODE_NAMES.index(self._operation_mode)
 
             # Check if the operational mode is DAC scan.
-            if operation_mode.index == ExcaliburDefinitions.FEM_OPERATION_MODE_DACSCAN:
+            if operation_mode == ExcaliburDefinitions.FEM_OPERATION_MODE_DACSCAN:
                 logging.debug('DAC scan requested so entering DAC scan mode')
                 self.hl_do_dac_scan()
                 return
 
-            # if self.args.burst_mode:
-            #     operation_mode = ExcaliburDefinitions.FEM_OPERATION_MODE_BURST
-            #
-            # if self.args.matrixread:
-            #     if self.args.burst_mode:
-            #         logging.warning('Cannot select burst mode and matrix read simultaneously, ignoring burst option')
-            #     operation_mode = ExcaliburDefinitions.FEM_OPERATION_MODE_MAXTRIXREAD
-            #
-
-            num_frames = self._param['config/num_images'].value
-            image_mode = self._param['config/image_mode'].value
+            num_frames = self._num_images
+            image_mode = self._image_mode
             logging.info('  Image mode set to {}'.format(image_mode))
             # Check for single image mode
             if image_mode == ExcaliburDefinitions.FEM_IMAGEMODE_NAMES[0]:
@@ -1551,12 +1593,12 @@ class HLExcaliburDetector(ExcaliburDetector):
             # Temporary 24 bit mode setup
             # TODO: Remove this once 24 bit mode has been implemented within the firmware
             # 24-bit reads are a special case, so set things up appropriately in this mode
-            logging.info("config/counter_depth value: {}".format(self._param['config/counter_depth'].value))
-            if int(self._param['config/counter_depth'].value) == 24:
+            logging.info("config/counter_depth value: {}".format(self._counter_depth))
+            if int(self._counter_depth) == 24:
                 self._24bit_mode = True
 
                 # Force counter select to C1, C0 is read manually afterwards
-                self._param['config/counter_select'].set_value(1, callback=False)
+                self._counter_select = 1
 
                 # For acquisitions with > 1 frame, run multiple acquisition loops instea
                 self._acquisition_loops = num_frames
@@ -1566,7 +1608,7 @@ class HLExcaliburDetector(ExcaliburDetector):
                 # In 24-bit mode, force a reset of the UDP frame counter before first acquisition loop
                 logging.info('Resetting UDP frame counter for 24 bit mode')
                 cmd_ok, err_msg = self.hl_do_command('reset_udp_counter')
-                logging.info("{} => {}".format(cmd_ok, err_msg))
+                logging.info("Command returned [{}] => {}".format(cmd_ok, err_msg))
                 if not cmd_ok:
                     logging.error("UDP counter reset failed: {}".format(err_msg))
                     return
@@ -1577,12 +1619,12 @@ class HLExcaliburDetector(ExcaliburDetector):
             # Build a list of parameters to be written to the system to set up acquisition
             write_params = []
 
-            tp_count = self._param['config/num_test_pulses'].value
+            tp_count = self._num_test_pulses
             logging.info('  Setting test pulse count to {}'.format(tp_count))
             write_params.append(ExcaliburParameter('mpx3_numtestpulses', [[tp_count]]))
-            tp_enable = self._param['config/test_pulse_enable']
-            logging.info('  Setting test pulse enable to {}'.format(tp_enable.value))
-            write_params.append(ExcaliburParameter('testpulse_enable', [[tp_enable.index]]))
+            tp_enable = ExcaliburDefinitions.FEM_TEST_PULSE_NAMES.index(self._test_pulse_enable)
+            logging.info('  Setting test pulse enable to {}'.format(self._test_pulse_enable))
+            write_params.append(ExcaliburParameter('testpulse_enable', [[tp_enable]]))
 
             write_params.append(ExcaliburParameter('num_frames_to_acquire', [[num_frames]]))
 
@@ -1590,81 +1632,64 @@ class HLExcaliburDetector(ExcaliburDetector):
             self._acq_frame_count = num_frames
 
             # Record the acquisition exposure time
-            self._acq_exposure = self._param['config/exposure_time'].value
+            self._acq_exposure = self._exposure_time
 
-            acquisition_time = int(self._param['config/exposure_time'].value * 1000.0)
+            acquisition_time = int(self._exposure_time * 1000.0)
             logging.info('  Setting acquisition time to {} ms'.format(acquisition_time))
             write_params.append(ExcaliburParameter('acquisition_time', [[acquisition_time]]))
 
-            trigger_mode = self._param['config/trigger_mode']
-            logging.info('  Setting trigger mode to {}'.format(trigger_mode.value))
-            write_params.append(ExcaliburParameter('mpx3_externaltrigger', [[trigger_mode.index]]))
+            trigger_mode = ExcaliburDefinitions.FEM_TRIGMODE_NAMES.index(self._trigger_mode)
+            logging.info('  Setting trigger mode to {}'.format(self._trigger_mode))
+            write_params.append(ExcaliburParameter('mpx3_externaltrigger', [[trigger_mode]]))
 
-            trigger_polarity = self._param['config/trigger_polarity']
-            logging.info('  Setting trigger polarity to {}'.format(trigger_polarity.value))
-            write_params.append(ExcaliburParameter('mpx3_triggerpolarity', [[trigger_polarity.index]]))
+            trigger_polarity = ExcaliburDefinitions.FEM_TRIGPOLARITY_NAMES.index(self._trigger_polarity)
+            logging.info('  Setting trigger polarity to {}'.format(self._trigger_polarity))
+            write_params.append(ExcaliburParameter('mpx3_triggerpolarity', [[trigger_polarity]]))
 
-            read_write_mode = self._param['config/read_write_mode']
-            logging.info('  Setting ASIC readout mode to {}'.format(read_write_mode.value))
-            write_params.append(ExcaliburParameter('mpx3_readwritemode', [[read_write_mode.index]]))
+            read_write_mode = ExcaliburDefinitions.FEM_READOUT_MODE_NAMES.index(self._read_write_mode)
+            logging.info('  Setting ASIC readout mode to {}'.format(self._read_write_mode))
+            write_params.append(ExcaliburParameter('mpx3_readwritemode', [[read_write_mode]]))
 
-            colour_mode = self._param['config/colour_mode']
-            logging.info('  Setting ASIC colour mode to {} '.format(colour_mode.value))
-            write_params.append(ExcaliburParameter('mpx3_colourmode', [[colour_mode.index]]))
+            colour_mode = ExcaliburDefinitions.FEM_COLOUR_MODE_NAMES.index(self._colour_mode)
+            logging.info('  Setting ASIC colour mode to {} '.format(self._colour_mode))
+            write_params.append(ExcaliburParameter('mpx3_colourmode', [[colour_mode]]))
 
-            csmspm_mode = self._param['config/csm_spm_mode']
-            logging.info('  Setting ASIC pixel mode to {} '.format(csmspm_mode.value))
-            write_params.append(ExcaliburParameter('mpx3_csmspmmode', [[csmspm_mode.index]]))
+            csmspm_mode = ExcaliburDefinitions.FEM_CSMSPM_MODE_NAMES.index(self._csm_spm_mode)
+            logging.info('  Setting ASIC pixel mode to {} '.format(self._csm_spm_mode))
+            write_params.append(ExcaliburParameter('mpx3_csmspmmode', [[csmspm_mode]]))
 
-            equalization_mode = self._param['config/equalization_mode']
-            logging.info('  Setting ASIC equalization mode to {} '.format(equalization_mode.value))
-            write_params.append(ExcaliburParameter('mpx3_equalizationmode', [[equalization_mode.index]]))
+            equalization_mode = ExcaliburDefinitions.FEM_EQUALIZATION_MODE_NAMES.index(self._equalization_mode)
+            logging.info('  Setting ASIC equalization mode to {} '.format(self._equalization_mode))
+            write_params.append(ExcaliburParameter('mpx3_equalizationmode', [[equalization_mode]]))
 
-            gain_mode = self._param['config/gain_mode']
-            logging.info('  Setting ASIC gain mode to {} '.format(gain_mode.value))
-            write_params.append(ExcaliburParameter('mpx3_gainmode', [[gain_mode.index]]))
+            gain_mode = ExcaliburDefinitions.FEM_GAIN_MODE_NAMES.index(self._gain_mode)
+            logging.info('  Setting ASIC gain mode to {} '.format(self._gain_mode))
+            write_params.append(ExcaliburParameter('mpx3_gainmode', [[gain_mode]]))
 
-            counter_select = self._param['config/counter_select'].value
+            counter_select = self._counter_select
             logging.info('  Setting ASIC counter select to {} '.format(counter_select))
             write_params.append(ExcaliburParameter('mpx3_counterselect', [[counter_select]]))
 
-            counter_depth = self._param['config/counter_depth'].value
+            counter_depth = self._counter_depth
             logging.info('  Setting ASIC counter depth to {} bits'.format(counter_depth))
             write_params.append(ExcaliburParameter('mpx3_counterdepth',
                                                    [[ExcaliburDefinitions.FEM_COUNTER_DEPTH_MAP[counter_depth]]]))
 
-            disc_csm_spm = self._param['config/disc_csm_spm']
+            disc_csm_spm = ExcaliburDefinitions.FEM_DISCCSMSPM_NAMES.index(self._disc_csm_spm)
             int_counter_depth = ExcaliburDefinitions.FEM_COUNTER_DEPTH_MAP[counter_depth]
-            csm_spm_value = ExcaliburDefinitions.DISC_SPM_CSM_TABLE[int_counter_depth][csmspm_mode.index][disc_csm_spm.index][read_write_mode.index][counter_select]
+            csm_spm_value = ExcaliburDefinitions.DISC_SPM_CSM_TABLE[int_counter_depth][csmspm_mode][disc_csm_spm][read_write_mode][counter_select]
             logging.info('  Setting ASIC discriminator output mode to {} '.format(csm_spm_value))
             write_params.append(ExcaliburParameter('mpx3_disccsmspm', [[csm_spm_value]]))
 
-            logging.info('  Setting operation mode to {}'.format(operation_mode.value))
-            write_params.append(ExcaliburParameter('mpx3_operationmode', [[operation_mode.index]]))
+            logging.info('  Setting operation mode to {}'.format(self._operation_mode))
+            write_params.append(ExcaliburParameter('mpx3_operationmode', [[operation_mode]]))
 
-            lfsr_bypass = self._param['config/lfsr_bypass']
-            logging.info('  Setting LFSR bypass mode to {}'.format(lfsr_bypass.value))
-            write_params.append(ExcaliburParameter('mpx3_lfsrbypass', [[lfsr_bypass.index]]))
-
-            #
-            # if self.args.matrixread:
-            #     lfsr_bypass_mode = ExcaliburDefinitions.FEM_LFSR_BYPASS_MODE_ENABLED
-            # else:
-            #     lfsr_bypass_mode = ExcaliburDefinitions.FEM_LFSR_BYPASS_MODE_DISABLED
-            #
-            #logging.info('  Setting data interface address and port parameters')
-            #write_params.append(ExcaliburParameter('source_data_addr', [[addr] for addr in self.source_data_addr]))
-            #write_params.append(ExcaliburParameter('source_data_mac', [[mac] for mac in self.source_data_mac]))
-            #write_params.append(ExcaliburParameter('source_data_port', [[port] for port in self.source_data_port]))
-            #write_params.append(ExcaliburParameter('dest_data_addr', [[addr] for addr in self.dest_data_addr]))
-            #write_params.append(ExcaliburParameter('dest_data_mac', [[mac] for mac in self.dest_data_mac]))
-            #write_params.append(ExcaliburParameter('dest_data_port', [[port] for port in self.dest_data_port]))
+            lfsr_bypass = ExcaliburDefinitions.FEM_LFSR_BYPASS_MODE_NAMES.index(self._lfsr_bypass)
+            logging.info('  Setting LFSR bypass mode to {}'.format(self._lfsr_bypass))
+            write_params.append(ExcaliburParameter('mpx3_lfsrbypass', [[lfsr_bypass]]))
 
             logging.info('  Disabling local data receiver thread')
             write_params.append(ExcaliburParameter('datareceiver_enable', [[0]]))
-
-            # Connect to the hardware
-            # self.connect({'state': True})
 
             if self._24bit_mode:
                 self._24bit_params = write_params
@@ -1728,7 +1753,7 @@ class HLExcaliburDetector(ExcaliburDetector):
             'mpx3_operationmode', [[ExcaliburDefinitions.FEM_OPERATION_MODE_MAXTRIXREAD]]
         ))
         # Reset counter select back to C0
-        self._param['config/counter_select'].set_value(0, callback=False)
+        self._counter_select = 0
 
         c0_read_params.append(ExcaliburParameter('mpx3_counterselect', [[0]]))
         c0_read_params.append(ExcaliburParameter('num_frames_to_acquire', [[1]]))
@@ -1828,17 +1853,25 @@ class HLExcaliburDetector(ExcaliburDetector):
     def hl_do_command(self, command):
         logging.debug("Do command: {}".format(command))
         with self._comms_lock:
+            if self._simulator is not None:
+                self._simulator.do_command(command)
+                return (True, '')
             self.do_command(command, None)
             return self.wait_for_write_completion()
 
     def hl_write_params(self, params):
         logging.debug("Writing params: {}".format(params))
         with self._comms_lock:
-            if self._simulator is not None:
-                self._simulator.write_fe_params(params)
-                return (True, '')
-            self.write_fe_param(params)
-            return self.wait_for_write_completion()
+            try:
+                if self._simulator is not None:
+                    self._simulator.write_fe_params(params)
+                    return (True, '')
+                self.write_fe_param(params)
+                return self.wait_for_write_completion()
+            except:
+                self.set_error("Failed to write params: {}".format(params))
+                return (False, '')
+
 
     def hl_read_params(self, params):
         values = None
@@ -1862,13 +1895,13 @@ class HLExcaliburDetector(ExcaliburDetector):
                       'efuseid_c6':  [],
                       'efuseid_c7':  [],
                       'efuse_match': []}
-        if self._param['config/cal_file_root'].value != '':
+        if self._cal_file_root != '':
             try:
                 # First read out the efuse values from the files
                 recorded_efuses = {}
                 for fem in self._fems:
                     efid_parser = ExcaliburEfuseIDParser()
-                    filename = self._param['config/cal_file_root'].value + "/fem" + str(fem) + '/efuseIDs'
+                    filename = self._cal_file_root + '/fem' + str(fem) + '/efuseIDs'
                     efid_parser.parse_file(filename)
                     recorded_efuses[fem] = efid_parser.efuse_ids
                 logging.debug("EfuseIDs read from file: %s", recorded_efuses)
