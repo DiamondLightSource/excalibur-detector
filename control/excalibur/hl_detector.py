@@ -578,6 +578,7 @@ class HLExcaliburDetector(ExcaliburDetector):
 
     def set_csm_spm_mode(self, value):
         self._csm_spm_mode = value
+        self.update_calibration('set_csm_spm_mode', value)
     
     def get_colour_mode(self):
         return self._colour_mode
@@ -590,6 +591,7 @@ class HLExcaliburDetector(ExcaliburDetector):
 
     def set_gain_mode(self, value):
         self._gain_mode = value
+        self.hl_set_gain_mode()
 
     def get_counter_select(self):
         return self._counter_select
@@ -608,12 +610,14 @@ class HLExcaliburDetector(ExcaliburDetector):
 
     def set_cal_file_root(self, value):
         self._cal_file_root = value
+        self.update_calibration('set_cal_file_root', value)
 
     def get_energy_threshold(self):
         return self._energy_threshold
 
     def set_energy_threshold(self, value):
         self._energy_threshold = value
+        self.update_calibration('set_energy_threshold', value)
 
     def get_udp_file(self):
         return self._udp_file
@@ -626,18 +630,21 @@ class HLExcaliburDetector(ExcaliburDetector):
 
     def set_hv_bias(self, value):
         self._hv_bias = value
+        self.hl_hv_bias_set('set_hv_bias', value)
 
     def get_lv_enable(self):
         return self._lv_enable
 
     def set_lv_enable(self, value):
         self._lv_enable = value
+        self.hl_lv_enable('set_lv_enable', value)
 
     def get_hv_enable(self):
         return self._hv_enable
 
     def set_hv_enable(self, value):
         self._hv_enable = value
+        self.hl_hv_enable('set_hv_enable', value)
 
     def get_test_dac_file(self):
         return self._test_dac_file
@@ -991,7 +998,7 @@ class HLExcaliburDetector(ExcaliburDetector):
             logging.debug("%s  %s", dac_name, dac_param)
             dac_vals = []
             for fem in self._fems:
-                logging.info("Downloading FEM # {}".format(fem))
+                logging.info("Downloading {} to FEM # {}".format(dac_name, fem))
                 #fem_vals = [self._cb.get_dac(fem).dacs(fem, chip_id)[dac_name] for chip_id in self.get_chip_ids(fem)]
                 fem_vals = [self._cb.get_dac(fem).dacs(fem, chip_id)[dac_name] for chip_id in ExcaliburDefinitions.FEM_DEFAULT_CHIP_IDS]
                 dac_vals.append(fem_vals)
@@ -1408,6 +1415,7 @@ class HLExcaliburDetector(ExcaliburDetector):
                 cmd_ok, err_msg, status = self.hl_read_params(read_params)
                 if cmd_ok:
                     with self._param_lock:
+                        logging.info("{}".format(status))
                         lv_enabled = 1
                         for param in fe_params:
                             if param in status:
@@ -1447,6 +1455,10 @@ class HLExcaliburDetector(ExcaliburDetector):
                                 self._supply_status[param] = self._default_status
                             if param in fem_params:
                                 self._fem_status[param] = self._default_status
+                        if self._lv_enable == 1:
+                            logging.error("Lost LV enabled.  Check for safety trip indicator")
+                            self.hl_toggle_lv()
+                            self._lv_enabled = 0
 
                 if not self._read_efuse_ids:
                     # Only read the efuse IDs if the LV is enabled
