@@ -185,40 +185,45 @@ namespace FrameProcessor
    *
    * \param[in] frame - Pointer to a Frame object.
    */
-  boost::shared_ptr<Frame> ExcaliburProcessPlugin::process_lost_packets(boost::shared_ptr<Frame> frame)
+  void ExcaliburProcessPlugin::process_lost_packets(boost::shared_ptr<Frame>& frame)
   {
-    boost::shared_ptr<Frame> verified_frame = frame;
-    const Excalibur::FrameHeader* hdr_ptr = static_cast<const Excalibur::FrameHeader*>(frame->get_data());
+
+    const Excalibur::FrameHeader* hdr_ptr = static_cast<const Excalibur::FrameHeader*>(frame->get_data_ptr());
     Excalibur::AsicCounterBitDepth depth = static_cast<Excalibur::AsicCounterBitDepth>(asic_counter_depth_);
     LOG4CXX_DEBUG(logger_, "Processing lost packets for frame " << hdr_ptr->frame_number);
     LOG4CXX_DEBUG(logger_, "Packets received: " << hdr_ptr->total_packets_received
                                                 << " out of a maximum "
                                                 << Excalibur::num_fem_frame_packets(depth) * hdr_ptr->num_active_fems);
-    if (hdr_ptr->total_packets_received < (Excalibur::num_fem_frame_packets(depth) * hdr_ptr->num_active_fems)){
+
+    if (hdr_ptr->total_packets_received < (Excalibur::num_fem_frame_packets(depth) * hdr_ptr->num_active_fems))
+    {
       // We only need to perform this processing if there are any lost packets
-      size_t nbytes = frame->get_data_size();
-      void* verified_image = (void*)malloc(nbytes);
-      memcpy(verified_image, frame->get_data(), nbytes);
 
       int packets_lost = (Excalibur::num_fem_frame_packets(depth) * hdr_ptr->num_active_fems) - hdr_ptr->total_packets_received;
       LOG4CXX_ERROR(logger_, "Frame number " << hdr_ptr->frame_number << " has dropped " << packets_lost << " packets");
       packets_lost_ += packets_lost;
       LOG4CXX_ERROR(logger_, "Total packets lost since startup " << packets_lost_);
+
       // Now loop over the packet state arrays to find out which packets are missing
       // Loop over the number of fems, the number of subframes and the number of packets
       int lost_packet_no = 0;
-      for (int fem_no = 0; fem_no < (int)hdr_ptr->num_active_fems; fem_no++){
-        for (int subframe = 0; subframe < Excalibur::num_subframes[depth]; subframe++){
-          // Get a pointer to the new memory block
-          char *packet_ptr = (char *)verified_image;
-          // Increment by the buffer header size
-          packet_ptr += sizeof(Excalibur::FrameHeader);
+      for (int fem_no = 0; fem_no < (int)hdr_ptr->num_active_fems; fem_no++)
+      {
+        for (int subframe = 0; subframe < Excalibur::num_subframes[depth]; subframe++)
+        {
+          // Get a pointer to frame data 
+          char* packet_ptr = static_cast<char *>(frame->get_data_ptr()) 
+            + sizeof(Excalibur::FrameHeader);
+
           // Increment by the fem and subframe size
           packet_ptr += (((fem_no * Excalibur::num_subframes[depth]) + subframe) * Excalibur::subframe_size(depth));
+
           // First loop over all of the primary packets
           int packet = 0;
-          for (packet = 0; packet < Excalibur::num_primary_packets[depth]; packet++){
-            if (hdr_ptr->fem_rx_state[fem_no].packet_state[subframe][packet] == 0){
+          for (packet = 0; packet < Excalibur::num_primary_packets[depth]; packet++)
+          {
+            if (hdr_ptr->fem_rx_state[fem_no].packet_state[subframe][packet] == 0)
+            {
               LOG4CXX_ERROR(logger_, "Missing packet number " << lost_packet_no);
               // Memset the packet to 0 currently
               memset(packet_ptr, 0, Excalibur::primary_packet_size);
@@ -237,11 +242,7 @@ namespace FrameProcessor
           lost_packet_no++;
         }
       }
-      verified_frame = boost::shared_ptr<Frame>(new Frame("verified"));
-      verified_frame->copy_data(verified_image, nbytes);
-      free(verified_image);
     }
-    return verified_frame;
   }
 
   /**
@@ -255,16 +256,15 @@ namespace FrameProcessor
     LOG4CXX_TRACE(logger_, "Reordering frame.");
     LOG4CXX_TRACE(logger_, "Frame size: " << frame->get_data_size());
 
-    frame = this->process_lost_packets(frame);
-
-    const Excalibur::FrameHeader* hdr_ptr =
-        static_cast<const Excalibur::FrameHeader*>(frame->get_data());
+    Excalibur::FrameHeader* hdr_ptr = static_cast<Excalibur::FrameHeader*>(frame->get_data_ptr());
 
     LOG4CXX_TRACE(logger_, "Raw frame number: " << hdr_ptr->frame_number);
     LOG4CXX_TRACE(logger_, "Frame state: " << hdr_ptr->frame_state);
     LOG4CXX_TRACE(logger_, "Packets received: " << hdr_ptr->total_packets_received
         << " SOF markers: "<< (int)hdr_ptr->total_sof_marker_count
         << " EOF markers: "<< (int)hdr_ptr->total_eof_marker_count);
+
+    this->process_lost_packets(frame);
 
     // Loop over the active FEM list to determine the maximum active FEM index
 
@@ -289,11 +289,8 @@ namespace FrameProcessor
 
     // Obtain a pointer to the start of the data in the frame
     const void* data_ptr = static_cast<const void*>(
-        static_cast<const char*>(frame->get_data()) + sizeof(Excalibur::FrameHeader)
+        static_cast<const char*>(frame->get_data_ptr()) + sizeof(Excalibur::FrameHeader)
     );
-
-    // Pointers to reordered image buffer - will be allocated on demand
-    void* reordered_image = NULL;
 
     try
     {
@@ -311,13 +308,56 @@ namespace FrameProcessor
         throw std::runtime_error(msg.str());
       }
 
-      // Allocate buffer to receive reordered image.
-      reordered_image = (void*)malloc(output_image_size);
-      if (reordered_image == NULL)
+
+      // Create and populate metadata for the reordered frame
+      FrameMetaData frame_meta;
+
+      // Set the dataset name 
+      frame_meta.set_dataset_name("data");
+
+      // Set the frame number in frame metadata
+      if (asic_counter_depth_ == DEPTH_24_BIT)
       {
-        this->set_error("Failed to allocate temporary buffer for reordered image");
-        throw std::runtime_error("Failed to allocate temporary buffer for reordered image");
+        // Only every other incoming frame results in a new frame
+        frame_meta.set_frame_number(static_cast<long long>(hdr_ptr->frame_number/2));
       }
+      else
+      {
+        frame_meta.set_frame_number(static_cast<long long>(hdr_ptr->frame_number));
+      }
+
+      // set frame data type based on the output image
+      switch (asic_counter_depth_)
+      {
+        case DEPTH_1_BIT:
+        case DEPTH_6_BIT:
+          frame_meta.set_data_type(raw_8bit);
+          break;
+
+        case DEPTH_12_BIT:
+          frame_meta.set_data_type(raw_16bit);
+          break;
+
+        case DEPTH_24_BIT:
+          frame_meta.set_data_type(raw_32bit);
+          break;
+      }
+
+      // Setup the frame dimensions
+      dimensions_t dims(2);
+      dims[0] = image_height_;
+      dims[1] = image_width_;
+      frame_meta.set_dimensions(dims);
+
+      // Set frame compression type to uncompressed
+      frame_meta.set_compression_type(no_compression);
+
+      // Construct a new data block frame to output the reordered image
+      boost::shared_ptr<Frame> data_frame;
+      data_frame = boost::shared_ptr<Frame>(new DataBlockFrame(frame_meta, output_image_size));
+
+      // Get a pointer to the data buffer in the output frame
+      void* output_ptr = data_frame->get_data_ptr();
 
       // Calculate the FEM frame size once so it can be used in the following loop
       // repeatedly
@@ -351,19 +391,19 @@ namespace FrameProcessor
         {
           case DEPTH_1_BIT: // 1-bit counter depth
             reorder_1bit_stripe(static_cast<unsigned int *>(input_ptr),
-                                static_cast<unsigned char *>(reordered_image) + output_offset,
+                                static_cast<unsigned char *>(output_ptr) + output_offset,
                                 stripe_is_even);
             break;
 
           case DEPTH_6_BIT: // 6-bit counter depth
             reorder_6bit_stripe(static_cast<unsigned char *>(input_ptr),
-                                static_cast<unsigned char *>(reordered_image) + output_offset,
+                                static_cast<unsigned char *>(output_ptr) + output_offset,
                                 stripe_is_even);
             break;
 
           case DEPTH_12_BIT: // 12-bit counter depth
             reorder_12bit_stripe(static_cast<unsigned short *>(input_ptr),
-                                 static_cast<unsigned short *>(reordered_image) + output_offset,
+                                 static_cast<unsigned short *>(output_ptr) + output_offset,
                                  stripe_is_even);
             break;
 
@@ -375,58 +415,17 @@ namespace FrameProcessor
             reorder_24bit_stripe(
                 static_cast<unsigned short *>(c0_input_ptr),
                 static_cast<unsigned short *>(c1_input_ptr),
-                static_cast<unsigned int *>(reordered_image) + output_offset,
+                static_cast<unsigned int *>(output_ptr) + output_offset,
                 stripe_is_even);
 
             break;
         }
       }
 
-      // Set the frame image to the reordered image buffer if appropriate
-      if (reordered_image)
-      {
-        // Setup the frame dimensions
-        dimensions_t dims(2);
-        dims[0] = image_height_;
-        dims[1] = image_width_;
+      // Push the output data frame
+      LOG4CXX_TRACE(logger_, "Pushing data frame.");
+      this->push(data_frame);
 
-        boost::shared_ptr<Frame> data_frame;
-        data_frame = boost::shared_ptr<Frame>(new Frame("data"));
-
-        if (asic_counter_depth_ == DEPTH_24_BIT)
-        {
-          // Only every other incoming frame results in a new frame
-          data_frame->set_frame_number(hdr_ptr->frame_number/2);
-        }
-        else
-        {
-          data_frame->set_frame_number(hdr_ptr->frame_number);
-        }
-        // set frame data type based on the output image
-        switch (asic_counter_depth_)
-        {
-          case DEPTH_1_BIT:
-          case DEPTH_6_BIT:
-            data_frame->set_data_type(raw_8bit);
-            break;
-
-          case DEPTH_12_BIT:
-            data_frame->set_data_type(raw_16bit);
-            break;
-
-          case DEPTH_24_BIT:
-            data_frame->set_data_type(raw_32bit);
-            break;
-        }
-        data_frame->set_dimensions(dims);
-        data_frame->copy_data(reordered_image, output_image_size);
-
-        LOG4CXX_TRACE(logger_, "Pushing data frame.");
-        this->push(data_frame);
-
-        free(reordered_image);
-        reordered_image = NULL;
-      }
     }
     catch (const std::exception& e)
     {
