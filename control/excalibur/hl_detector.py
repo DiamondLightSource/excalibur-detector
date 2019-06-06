@@ -1415,7 +1415,7 @@ class HLExcaliburDetector(ExcaliburDetector):
                 cmd_ok, err_msg, status = self.hl_read_params(read_params)
                 if cmd_ok:
                     with self._param_lock:
-                        logging.info("{}".format(status))
+                        logging.debug("Slow read params: {}".format(status))
                         lv_enabled = 1
                         for param in fe_params:
                             if param in status:
@@ -1458,7 +1458,7 @@ class HLExcaliburDetector(ExcaliburDetector):
                         if self._lv_enable == 1:
                             logging.error("Lost LV enabled.  Check for safety trip indicator")
                             self.hl_toggle_lv()
-                            self._lv_enabled = 0
+                        self._lv_enabled = 0
 
                 if not self._read_efuse_ids:
                     # Only read the efuse IDs if the LV is enabled
