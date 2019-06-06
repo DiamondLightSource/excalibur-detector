@@ -15,7 +15,7 @@
 	    {
 		"index":"hdf",
 		"name":"FileWriterPlugin",
-		"library":"/scratch/percival/odin-data/prefix/lib/libHdf5Plugin.so"
+		"library":"${INSTALL_PREFIX}/lib/libHdf5Plugin.so"
 	    }
 	}
     },
@@ -26,7 +26,7 @@
 	    {
 		"index":"excalibur",
 		"name":"ExcaliburProcessPlugin",
-		"library":"/scratch/percival/excalibur-detector/prefix/lib/libExcaliburProcessPlugin.so"
+		"library":"${EXCALIBUR_PREFIX}/lib/libExcaliburProcessPlugin.so"
 	    }
 	}
     },
@@ -77,9 +77,9 @@
 	    },
 	    "file":
 	    {
-		"path":"/scratch/percival"
+		"path":""
 	    },
-	    "frames":64,
+	    "frames":10,
 	    "acquisition_id":"test_1",
 	    "write":true
 	}
