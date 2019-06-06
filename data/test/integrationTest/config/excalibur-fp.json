@@ -1,0 +1,87 @@
+[
+    {
+	"fr_setup":
+	{
+	    "fr_ready_cnxn":"tcp://127.0.0.1:5001",
+	    "fr_release_cnxn":"tcp://127.0.0.1:5002"
+	},
+	"meta_endpoint":"tcp://*:5008"
+    },
+    
+    {
+	"plugin":
+	{
+	    "load":
+	    {
+		"index":"hdf",
+		"name":"FileWriterPlugin",
+		"library":"/scratch/percival/odin-data/prefix/lib/libHdf5Plugin.so"
+	    }
+	}
+    },
+    {
+	"plugin":
+	{
+	    "load":
+	    {
+		"index":"excalibur",
+		"name":"ExcaliburProcessPlugin",
+		"library":"/scratch/percival/excalibur-detector/prefix/lib/libExcaliburProcessPlugin.so"
+	    }
+	}
+    },
+    {
+	"plugin":
+	{
+	    "connect":
+	    {
+		"index":"excalibur",
+		"connection":"frame_receiver"
+	    }
+	}
+    },
+    {
+	"plugin":
+	{
+	    "connect":
+	    {
+		"index":"hdf",
+		"connection":"excalibur"
+	    }
+	}
+    },
+  {
+    "excalibur": {
+      "width": 2048,
+      "height": 512
+    }
+  },
+
+    {
+	"hdf":
+	{
+	    "dataset":"data"
+	}
+    },
+    {
+	"hdf":
+	{
+	    "dataset":
+	    {
+		"data":
+		{
+		    "datatype":"uint16",
+		    "dims":[512,2048],
+		    "compression":"none"
+		}
+	    },
+	    "file":
+	    {
+		"path":"/scratch/percival"
+	    },
+	    "frames":64,
+	    "acquisition_id":"test_1",
+	    "write":true
+	}
+    }
+]

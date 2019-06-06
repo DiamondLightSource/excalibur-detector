@@ -17,7 +17,7 @@ namespace FrameSimulator {
     * setup an instance of the logger
     * initialises data and frame counts
     */
-    ExcaliburFrameSimulatorPlugin::ExcaliburFrameSimulatorPlugin() : pcapFrameSimulatorPlugin() {
+    ExcaliburFrameSimulatorPlugin::ExcaliburFrameSimulatorPlugin() : FrameSimulatorPluginUDP() {
 
         // Setup logging for the class
         logger_ = Logger::getLogger("FS.ExcaliburFrameSimulatorPlugin");
@@ -142,7 +142,7 @@ namespace FrameSimulator {
      */
     void ExcaliburFrameSimulatorPlugin::extract_frames(const u_char *data, const int &size) {
 
-        Excalibur::AsicCounterBitDepth depth = Excalibur::bitDepth1;
+        Excalibur::AsicCounterBitDepth depth = Excalibur::bitDepth12;
 
         LOG4CXX_DEBUG(logger_, "Extracting frame(s) from packet");
 
@@ -206,11 +206,80 @@ namespace FrameSimulator {
 
     }
 
+    /** Creates a number of frames
+     *
+     * @param num_frames - number of frames to create
+     */
+    void ExcaliburFrameSimulatorPlugin::create_frames(const int &num_frames) {
+
+      Excalibur::AsicCounterBitDepth depth = Excalibur::bitDepth12;
+
+      LOG4CXX_DEBUG(logger_, "Creating frame(s)");
+
+      const int num_packets = Excalibur::num_primary_packets[depth] + Excalibur::num_tail_packets;
+
+      int trailer_frame_number = 1;
+
+      for(int frame=0; frame < num_frames; frame++) {
+
+        for(int sub_frame=0; sub_frame < Excalibur::num_subframes[depth]; sub_frame++) {
+
+          for(int packet=0; packet < num_packets; packet++) {
+
+            bool is_first_primary_packet = ((total_packets) % 66 == 0);
+            bool is_tail_packet = ((total_packets + 1) % 66 == 0);
+
+            size_t packet_size = !is_tail_packet ?
+                    Excalibur::primary_packet_size + 8 : Excalibur::tail_packet_size[depth] + 8;
+
+            unsigned char *data = new unsigned char[packet_size];
+
+            unsigned int subframe_number = int(total_packets / 66);
+            unsigned int packet_number = total_packets + 1;
+
+            data[0] = subframe_number & 0xff;
+            data[1] = (subframe_number >> 8) & 0xff;
+            data[2] = (subframe_number >> 16) & 0xff;
+            data[3] = (subframe_number >> 24) & 0xff;
+
+            if(is_first_primary_packet) {
+
+              data[4] = Excalibur::start_of_frame_mask & 0xff;
+              data[5] = (Excalibur::start_of_frame_mask >> 8) & 0xff;
+              data[6] = (Excalibur::start_of_frame_mask >> 16) & 0xff;
+              data[7] = (Excalibur::start_of_frame_mask >> 24) & 0xff;
+
+            }
+
+            else if(is_tail_packet) {
+
+              data[4] = Excalibur::end_of_frame_mask & 0xff;
+              data[5] = (Excalibur::end_of_frame_mask >> 8) & 0xff;
+              data[6] = (Excalibur::end_of_frame_mask >> 16) & 0xff;
+              data[7] = (Excalibur::end_of_frame_mask >> 24) & 0xff;
+
+              data[packet_size - 8] = trailer_frame_number & 0xff;
+              data[packet_size - 7] = (trailer_frame_number >> 8) & 0xff;
+              data[packet_size - 6] = (trailer_frame_number >> 16) & 0xff;
+              data[packet_size - 5] = (trailer_frame_number >> 24) & 0xff;
+
+            }
+
+            this->extract_frames(data, packet_size);
+
+          }
+
+        }
+
+      }
+
+    }
+
    /**
-   * Get the plugin major version number.
-   *
-   * \return major version number as an integer
-   */
+    * Get the plugin major version number.
+    *
+    * \return major version number as an integer
+    */
     int ExcaliburFrameSimulatorPlugin::get_version_major() {
         return ODIN_DATA_VERSION_MAJOR;
     }

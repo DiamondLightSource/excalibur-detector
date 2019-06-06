@@ -15,7 +15,7 @@ using namespace log4cxx::helpers;
 
 #include "ClassLoader.h"
 #include "ExcaliburFrame.h"
-#include "pcapFrameSimulatorPlugin.h"
+#include "FrameSimulatorPluginUDP.h"
 
 namespace FrameSimulator {
 
@@ -23,11 +23,12 @@ namespace FrameSimulator {
 
     /** ExcaliburFrameSimulatorPlugin
      *
-     *  'extract_frames' is called on setup: this takes the content of the pcap file and reproduces the
-     *  excalibur frames to store
-     *  'replay_frames' is called by simulate: this then replays the stored frames
+     *  'prepare_packets' (and then 'extract_frames') is called on setup if a pcap file is specified: this takes the
+     *  content of the pcap file and organises it in frames to store
+     *  'create_frames' is called on setup if no pcap file is specified
+     *  'replay_frames' is called by simulate: this will replay the created/stored frames
      */
-    class ExcaliburFrameSimulatorPlugin : public pcapFrameSimulatorPlugin {
+    class ExcaliburFrameSimulatorPlugin : public FrameSimulatorPluginUDP {
 
     public:
 
@@ -42,6 +43,7 @@ namespace FrameSimulator {
     protected:
 
         virtual void extract_frames(const u_char* data, const int& size);
+        virtual void create_frames(const int &num_frames);
         virtual void replay_frames();
 
     private:
