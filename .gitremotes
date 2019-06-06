@@ -1,0 +1,2 @@
+gitlab ssh://git@gitlab.diamond.ac.uk/controls/tools/excalibur-detector.git
+dls-controls git@github.com:dls-controls/excalibur-detector.git
