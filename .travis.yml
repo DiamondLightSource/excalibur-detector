@@ -1,33 +1,29 @@
-language: python
+language: cpp
 sudo: false
-python:
-- 2.7
-- 3.6
-addons:
-  apt:
-    packages:
-    - liblog4cxx10-dev
-    - libboost-program-options-dev
-    - libboost-filesystem-dev
-    - libboost-date-time-dev
-    - libboost-dev
-    - libboost-system-dev
-    - libboost-test-dev
-    - libboost-thread-dev
-    - libzmq3-dev
-    - libpcap-dev
-    - libboost-regex-dev
-env: HDF5_ROOT=$HOME/hdf5-1.10.1 INSTALL_PREFIX=$HOME/install_prefix ODIN_PREFIX=$HOME/odin-data-systemtest
-before-install:
-- bash .travis-install-hdf5.sh
-- bash .travis-install-log4cxx.sh
-- bash .travis-install-odin.sh
+matrix:
+  include:
+  - os: linux
+    compiler: gcc
+    addons:
+      apt:
+        packages:
+        - liblog4cxx10-dev
+        - libboost-program-options-dev
+        - libboost-filesystem-dev
+        - libboost-date-time-dev
+        - libboost-dev
+        - libboost-system-dev
+        - libboost-test-dev
+        - libboost-thread-dev
+        - libzmq3-dev
+        - libpcap-dev
+        - libboost-regex-dev
+    env: HDF5_ROOT=$HOME/hdf5-1.10.1 INSTALL_PREFIX=$HOME/install_prefix ODIN_PREFIX=$HOME/odin-data-systemtest
+    before-install:
+    - bash .travis-install-hdf5.sh
+    - bash .travis-install-log4cxx.sh
+    - bash .travis-install-odin.sh
 install:
-- cd control
-- python setup.py --stub-only install
-- pip install coveralls
-- pip install mock
-- cd ..
 - mkdir -p build
 - mkdir -p $INSTALL_PREFIX
 - cd build;
@@ -35,10 +31,6 @@ install:
 - cmake --build . --target install;
 - cd ..
 script:
-- cd control
-- python setup.py --stub-only test
-- coverage report -m
-- cd ..
 - ./${ODIN_PREFIX}/bin/odinDataTest --ini=${INSTALL_PREFIX}/test_config/excalibur.ini
 after_success:
 - coveralls
