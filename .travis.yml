@@ -18,8 +18,10 @@ matrix:
         - libzmq3-dev
         - libpcap-dev
         - libboost-regex-dev
-    env: HDF5_ROOT=$HOME/hdf5-1.10.1 INSTALL_PREFIX=$HOME/install_prefix ODIN_PREFIX=$HOME/odin-data-systemtest
+    env: HDF5_ROOT=$HOME/hdf5-1.10.1 INSTALL_PREFIX=$HOME/install_prefix ODIN_PREFIX=$HOME/odin-data-systemtest BLOSC_ROOT=$HOME/c-blosc-1.14.2 KAFKA_ROOT=$HOME/librdkafka-1.0.0
     before_install:
+    - bash .travis-install-blosc.sh
+    - bash .travis-install-librdkafka.sh
     - bash .travis-install-hdf5.sh
     - bash .travis-install-odin.sh
 install:
