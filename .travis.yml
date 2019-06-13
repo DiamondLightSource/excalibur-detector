@@ -6,20 +6,40 @@ python:
 addons:
   apt:
     packages:
+    - liblog4cxx10-dev
+    - libboost-program-options-dev
+    - libboost-filesystem-dev
+    - libboost-date-time-dev
     - libboost-dev
     - libboost-system-dev
     - libboost-test-dev
     - libboost-thread-dev
     - libzmq3-dev
     - libpcap-dev
+    - libboost-regex-dev
+env: HDF5_ROOT=$HOME/hdf5-1.10.1 INSTALL_PREFIX=$HOME/install_prefix ODIN_PREFIX=$HOME/odin-data-systemtest
+before-install:
+- bash .travis-install-hdf5.sh
+- bash .travis-install-log4cxx.sh
+- bash .travis-install-odin.sh
 install:
 - cd control
 - python setup.py --stub-only install
 - pip install coveralls
 - pip install mock
+- cd ..
+- mkdir -p build
+- mkdir -p $INSTALL_PREFIX
+- cd build;
+- cmake -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON -DBoost_NO_BOOST_CMAKE=ON -DCMAKE_INSTALL_PREFIX=$INSTALL_PREFIX -DLOG4CXX_ROOT_DIR=$HOME/$LOG4CXX -DODINDATA_ROOT_DIR=$ODIN_PREFIX ../data;
+- cmake --build . --target install;
+- cd ..
 script:
+- cd control
 - python setup.py --stub-only test
 - coverage report -m
+- cd ..
+- ./${ODIN_PREFIX}/bin/odinDataTest --ini=${INSTALL_PREFIX}/test_config/excalibur.ini
 after_success:
 - coveralls
 notifications:
