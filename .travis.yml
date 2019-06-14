@@ -25,6 +25,7 @@ matrix:
     - bash .travis-install-hdf5.sh
     - bash .travis-install-odin.sh
 install:
+- git fetch --depth=500
 - mkdir -p build
 - mkdir -p $INSTALL_PREFIX
 - cd build;
