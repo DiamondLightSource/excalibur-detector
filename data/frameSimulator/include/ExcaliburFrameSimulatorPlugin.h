@@ -14,12 +14,9 @@ using namespace log4cxx::helpers;
 #include <stdexcept>
 
 #include "ClassLoader.h"
-#include "ExcaliburFrame.h"
 #include "FrameSimulatorPluginUDP.h"
 
 namespace FrameSimulator {
-
-    typedef std::vector<ExcaliburFrame> ExcaliburFrames;
 
     /** ExcaliburFrameSimulatorPlugin
      *
@@ -44,20 +41,11 @@ namespace FrameSimulator {
 
         virtual void extract_frames(const u_char* data, const int& size);
         virtual void create_frames(const int &num_frames);
-        virtual void replay_frames();
 
     private:
 
         /** Pointer to logger **/
         LoggerPtr logger_;
-
-        int total_packets;
-        int total_bytes;
-
-        int current_frame_num;
-        int current_subframe_num;
-
-        ExcaliburFrames frames;
 
     };
 
