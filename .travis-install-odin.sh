@@ -1,8 +1,8 @@
 #!/bin/bash
-VERSION="systemtest"
+VERSION="integration-test"
 ODIN="odin-data-${VERSION}"
 ODIN_PREFIX=$HOME/$ODIN
-git clone https://github.com/dls-controls/odin-data.git
+git clone https://github.com/odin-detector/odin-data.git
 cd odin-data
 git checkout $VERSION
 mkdir -p build;
