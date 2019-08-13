@@ -23,11 +23,13 @@ namespace FrameProcessor
       image_width_(2048),
       image_height_(256),
       image_pixels_(image_width_ * image_height_),
-      packets_lost_(0)
+      packets_lost_(0),
+      number_of_fems_(6)
   {
     // Setup logging for the class
     logger_ = Logger::getLogger("FP.ExcaliburProcessPlugin");
     logger_->setLevel(Level::getAll());
+    this->reset_statistics();
     LOG4CXX_INFO(logger_, "ExcaliburProcessPlugin version " << this->get_version_long() << " loaded");
   }
 
@@ -165,6 +167,9 @@ namespace FrameProcessor
     LOG4CXX_DEBUG(logger_, "Status requested for Excalibur plugin");
     status.set_param(get_name() + "/bitdepth", BIT_DEPTH[asic_counter_depth_]);
     status.set_param(get_name() + "/packets_lost", packets_lost_);
+    for (int index=0; index < fem_packets_lost_.size(); index++){
+      status.set_param(get_name() + "/fem_packets_lost[]", fem_packets_lost_[index]);
+    }
   }
 
   /**
@@ -176,6 +181,9 @@ namespace FrameProcessor
     
     // Reset packets lost counter
     packets_lost_ = 0;
+    // Re-allocate the fem counter vector
+    fem_packets_lost_.clear();
+    fem_packets_lost_.resize(number_of_fems_, 0);
 
     return true;
   }
@@ -190,6 +198,14 @@ namespace FrameProcessor
 
     const Excalibur::FrameHeader* hdr_ptr = static_cast<const Excalibur::FrameHeader*>(frame->get_data_ptr());
     Excalibur::AsicCounterBitDepth depth = static_cast<Excalibur::AsicCounterBitDepth>(asic_counter_depth_);
+    std::vector<int> fem_packet_loss(hdr_ptr->num_active_fems, 0);
+    std::stringstream packet_loss_record;
+
+    // Check if the FEM count has changed.  If so reset stats to reallocate the lost packets counters
+    if (hdr_ptr->num_active_fems != number_of_fems_){
+      number_of_fems_ = hdr_ptr->num_active_fems;
+      this->reset_statistics();
+    }
     LOG4CXX_DEBUG(logger_, "Processing lost packets for frame " << hdr_ptr->frame_number);
     LOG4CXX_DEBUG(logger_, "Packets received: " << hdr_ptr->total_packets_received
                                                 << " out of a maximum "
@@ -224,9 +240,10 @@ namespace FrameProcessor
           {
             if (hdr_ptr->fem_rx_state[fem_no].packet_state[subframe][packet] == 0)
             {
-              LOG4CXX_ERROR(logger_, "Missing packet number " << lost_packet_no);
+              packet_loss_record << lost_packet_no << ", ";
               // Memset the packet to 0 currently
               memset(packet_ptr, 0, Excalibur::primary_packet_size);
+              fem_packet_loss[fem_no] = fem_packet_loss[fem_no] + 1;
             }
             // Increment by the number of the lost packet x packet size
             packet_ptr += Excalibur::primary_packet_size;
@@ -235,13 +252,20 @@ namespace FrameProcessor
           // Now check the tail packet
           packet = Excalibur::num_primary_packets[depth];
           if (hdr_ptr->fem_rx_state[fem_no].packet_state[subframe][packet] == 0){
-            LOG4CXX_ERROR(logger_, "Missing packet number " << lost_packet_no);
+            //LOG4CXX_ERROR(logger_, "Missing packet number " << lost_packet_no);
+            packet_loss_record << lost_packet_no << ", ";
             // Memset the packet to 0 currently
             memset(packet_ptr, 0, Excalibur::tail_packet_size[depth]);
+            fem_packet_loss[fem_no] = fem_packet_loss[fem_no] + 1;
           }
           lost_packet_no++;
         }
+        if (fem_packet_loss[fem_no] > 0){
+          fem_packets_lost_[fem_no] += fem_packet_loss[fem_no];
+          LOG4CXX_ERROR(logger_, "Frame " << hdr_ptr->frame_number << " FEM " << (fem_no + 1) << " reports " << fem_packet_loss[fem_no] << " missing packets");
+        }
       }
+      LOG4CXX_ERROR(logger_, "Packets lost: " << packet_loss_record.str());
     }
   }
 
