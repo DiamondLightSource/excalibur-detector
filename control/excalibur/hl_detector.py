@@ -579,7 +579,7 @@ class HLExcaliburDetector(ExcaliburDetector):
 
     def set_csm_spm_mode(self, value):
         self._csm_spm_mode = value
-        self.update_calibration('set_csm_spm_mode', value)
+        self._calibration_required = True
     
     def get_colour_mode(self):
         return self._colour_mode
@@ -611,14 +611,14 @@ class HLExcaliburDetector(ExcaliburDetector):
 
     def set_cal_file_root(self, value):
         self._cal_file_root = value
-        self.update_calibration('set_cal_file_root', value)
+        self._calibration_required = True
 
     def get_energy_threshold(self):
         return self._energy_threshold
 
     def set_energy_threshold(self, value):
         self._energy_threshold = value
-        self.update_calibration('set_energy_threshold', value)
+        self._calibration_required = True
 
     def get_udp_file(self):
         return self._udp_file
@@ -786,7 +786,7 @@ class HLExcaliburDetector(ExcaliburDetector):
             logging.info('  Setting ASIC gain mode to {} '.format(self._gain_mode))
             write_params.append(ExcaliburParameter('mpx3_gainmode', [[ExcaliburDefinitions.FEM_GAIN_MODE_NAMES.index(self._gain_mode)]]))
             self.hl_write_params(write_params)
-            self.update_calibration('mpx3_gainmode', self._gain_mode)
+            self._calibration_required = True
 
     def hl_load_udp_config(self, name, filename):
         logging.info("Loading UDP configuration [{}] from file {}".format(name, filename))
