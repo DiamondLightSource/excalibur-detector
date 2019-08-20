@@ -6,6 +6,12 @@
         "dimensions": "3",
         "width": "512",
         "height": "2048",
-        "dataset": "data"
+        "dataset": "data",
+        "type": "uint16",
+        "data": {
+            "0" : 0,
+            "4" : 4,
+            "966": 966
+        }
     }
 }
