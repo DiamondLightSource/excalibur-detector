@@ -563,7 +563,7 @@ class HLExcaliburDetector(ExcaliburDetector):
         self._equalization_mode = value
 
     def get_trigger_mode(self):
-        return self._equalization_mode
+        return self._trigger_mode
 
     def set_trigger_mode(self, value):
         self._trigger_mode = value
