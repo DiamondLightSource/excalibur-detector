@@ -10,6 +10,7 @@ import json
 from datetime import datetime
 import time
 import threading
+import getpass
 is_py2 = sys.version[0] == '2'
 if is_py2:
     import Queue as queue
@@ -196,6 +197,8 @@ class HLExcaliburDetector(ExcaliburDetector):
 
         super(HLExcaliburDetector, self).__init__(fem_connections)
 
+        self._startup_time = datetime.now()
+        self._username = getpass.getuser()
         self._fems = range(1, len(fem_connections)+1)
         logging.debug("Fem conection IDs: %s", self._fems)
 
@@ -285,6 +288,9 @@ class HLExcaliburDetector(ExcaliburDetector):
             'api': (lambda: 0.1, {
                 # Meta data here
             }),
+            'username': (lambda: self._username, {}),
+            'start_time': (lambda: self._startup_time.strftime("%B %d, %Y %H:%M:%S"), {}),
+            'up_time': (lambda: str(datetime.now() - self._startup_time), {}),
             self.STR_STATUS: {
                 self.STR_STATUS_SENSOR: {
                     self.STR_STATUS_SENSOR_WIDTH: (self.get_sensor_width, {
@@ -449,7 +455,6 @@ class HLExcaliburDetector(ExcaliburDetector):
         self._fast_update_time = datetime.now()
         self._medium_update_time = datetime.now()
         self._slow_update_time = datetime.now()
-        self._startup_time = datetime.now()
         self._frame_start_count = 0
         self._frame_count_time = None
         self._calibration_required = True
