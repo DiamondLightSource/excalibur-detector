@@ -176,8 +176,9 @@ class DetectorCalibration(object):
     def load_threshold_calibration_file(self, fem, threshold):
         filename = self.cal_file_root(fem) + 'threshold' + str(threshold)
         config = ExcaliburThresholdConfigParser(filename)
-        logging.debug("Threshold file loaded gains   => %s", config.gains)
-        logging.debug("                      offsets => %s", config.offsets)
+        logging.info("Threshold file %s", filename)
+        logging.info("Threshold file loaded gains   => %s", config.gains)
+        logging.info("                      offsets => %s", config.offsets)
 
         return config
 
