@@ -153,6 +153,7 @@ class HLExcaliburDetector(ExcaliburDetector):
     STR_STATUS_EFUSE = 'efuse'
     STR_STATUS_FEM = 'fems'
     STR_STATUS_SUPPLY = 'supply'
+    STR_STATUS_DACS = 'dacs'
 
     STR_CONFIG = 'config'
     STR_CONFIG_NUM_IMAGES = 'num_images'
@@ -261,6 +262,7 @@ class HLExcaliburDetector(ExcaliburDetector):
         self._hv_enable = 0
         self._test_dac_file = ''
         self._test_mask_file = ''
+        self._dacs = {}
 
         # Initialise the powercard
         self._powercard_status = None
@@ -334,7 +336,8 @@ class HLExcaliburDetector(ExcaliburDetector):
                 self.STR_STATUS_POWERCARD: powercard_tree,
                 self.STR_STATUS_EFUSE: efuse_tree,
                 self.STR_STATUS_SUPPLY: supply_tree,
-                self.STR_STATUS_FEM: fem_tree
+                self.STR_STATUS_FEM: fem_tree,
+                self.STR_STATUS_DACS: (self.get_dacs, None)
             },
             self.STR_CONFIG: {
                 self.STR_CONFIG_NUM_IMAGES: (self.get_num_images, self.set_num_images, {
@@ -710,6 +713,9 @@ class HLExcaliburDetector(ExcaliburDetector):
     def get_acquisition_complete(self):
         return self._acquisition_complete
 
+    def get_dacs(self):
+        return self._dacs
+
     def init_powercard(self):
         # First, initialise the powercard status dict from the POWERCARD_PARAMS
         self._powercard_status = {}
@@ -933,6 +939,7 @@ class HLExcaliburDetector(ExcaliburDetector):
         logging.debug("Manual DAC calibration requested: %s", filename)
         for fem in self._fems:
             self.set_calibration_status(fem, 0, 'dac')
+            self._dacs = {}
         self._cb.manual_dac_calibration(self._fems, filename)
         self.download_dac_calibration()
         logging.debug("Calibration Status: %s", self._calibration_bitmask)
@@ -963,6 +970,7 @@ class HLExcaliburDetector(ExcaliburDetector):
                     # Reset all calibration status values prior to loading a new calibration
                     for fem in self._fems:
                         self.set_calibration_status(fem, 0)
+                        self._dacs = {}
                     if self._cal_file_root != '':
                         self._cb.set_file_root(self._cal_file_root)
                         self._cb.set_csm_spm_mode(ExcaliburDefinitions.FEM_CSMSPM_MODE_NAMES.index(self._csm_spm_mode))
@@ -994,15 +1002,19 @@ class HLExcaliburDetector(ExcaliburDetector):
 
     def download_dac_calibration(self):
         dac_params = []
+        self._dacs = {}
 
         for (dac_name, dac_param) in self._cb.get_dac(1).dac_api_params():
             logging.debug("%s  %s", dac_name, dac_param)
             dac_vals = []
             for fem in self._fems:
-                logging.info("Downloading {} to FEM # {}".format(dac_name, fem))
+                if fem not in self._dacs:
+                    self._dacs[fem] = {}
                 #fem_vals = [self._cb.get_dac(fem).dacs(fem, chip_id)[dac_name] for chip_id in self.get_chip_ids(fem)]
                 fem_vals = [self._cb.get_dac(fem).dacs(fem, chip_id)[dac_name] for chip_id in ExcaliburDefinitions.FEM_DEFAULT_CHIP_IDS]
+                logging.info("Downloading {} to FEM # {} {}".format(dac_name, fem, fem_vals))
                 dac_vals.append(fem_vals)
+                self._dacs[fem][dac_name] = fem_vals
 
             dac_params.append(ExcaliburParameter(dac_param, dac_vals,
                                                  fem=self._fems, chip=ExcaliburDefinitions.FEM_DEFAULT_CHIP_IDS))
@@ -1802,6 +1814,7 @@ class HLExcaliburDetector(ExcaliburDetector):
         logging.info("Initialising front end...")
         for fem in self._fems:
             self.set_calibration_status(fem, 0)
+            self._dacs = {}
         logging.info("Sending a fe_vdd_enable param set to 1")
         params = []
         params.append(ExcaliburParameter('fe_vdd_enable', [[1]], fem=self.powercard_fem_idx+1))
@@ -1815,6 +1828,7 @@ class HLExcaliburDetector(ExcaliburDetector):
         logging.info("Toggling lv_enable 1,0")
         for fem in self._fems:
             self.set_calibration_status(fem, 0)
+            self._dacs = {}
         if self.powercard_fem_idx < 0:
             self.set_error("Unable to toggle LV enable as server reports no power card")
             return
@@ -1827,6 +1841,7 @@ class HLExcaliburDetector(ExcaliburDetector):
         logging.info("Setting lv_enable to %d", lv_enable)
         for fem in self._fems:
             self.set_calibration_status(fem, 0)
+            self._dacs = {}
         if self.powercard_fem_idx < 0:
             self.set_error("Unable to set LV enable [] as server reports no power card".format(name))
             return
