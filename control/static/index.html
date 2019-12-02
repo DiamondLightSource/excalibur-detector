@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+    <title>Excalibur Server</title>
+
+    <!-- Bootstrap -->
+    <link href="js/bootstrap-3.3.7-dist/css/bootstrap.css" rel="stylesheet">
+
+  </head>
+  <body style="padding-top: 30px;">
+  
+    <nav class="navbar navbar-inverse navbar-fixed-top">
+      <div class="container-fluid">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+			<a class="navbar-brand" rel="home" href="" title="Odin-Data">
+	        <img style="max-width:40px; margin-top: -7px;" src="/img/odin_logo.jpg">
+		    </a>
+          <div class="navbar-brand">Excalibur Server</div>
+        </div>
+        <div id="navbar" class="navbar-collapse collapse">
+            <ul class="nav navbar-nav">
+                <li class="home"><a href="#/home-view"> <span
+                        class="glyphicon glyphicon-home"></span> <strong>Home</strong><span
+                        class="label"></span></a></li>
+
+                <li class="home"><a href="#/dac-view"> <span
+                        class="glyphicon glyphicon-home"></span> <strong>DAC</strong><span
+                        class="label"></span></a></li>
+
+            </ul>
+        </div>
+      </div>
+    </nav>
+
+<!-- HOME PAGE -->
+	<div class="container-fluid home-view page">
+		<div class="row fluid-row">		
+			<div class="span3">
+				<div class="well sidebar-nav-fixed">
+					<div class="container-fluid">
+						<div class="row sidebar-title">
+							<h3>Server Status</h3>
+						</div>
+						<div class="row sidebar-row vertical-align">
+							<div class="col-xs-2">API Version:</div>
+							<div id="api-version" class="col-xs-5 m-5 status vertical-align">&nbsp;</div>
+						</div>
+						<div class="row sidebar-row vertical-align">
+							<div class="col-xs-2">&nbsp;</div>
+						</div>
+						<div class="row sidebar-row vertical-align">
+							<div class="col-xs-2">Adapters Loaded:</div>
+							<div id="api-adapters" class="col-xs-5 status vertical-align">&nbsp;</div>
+						</div>
+						<div class="row sidebar-row vertical-align">
+							<div class="col-xs-2">&nbsp;</div>
+						</div>
+						<div class="row sidebar-row vertical-align">
+							<div class="col-xs-2">Detector Connection:</div>
+							<div class="col-xs-5 status vertical-align">
+								<table>
+									<tr><td width="180px">Username:</td><td width="200px" align="center" id="detector-hw-username"></td></tr>
+									<tr><td>Start Time:</td><td align="center" id="detector-hw-start-time"></td></tr>
+									<tr><td>Up Time:</td><td align="center" id="detector-hw-up-time"></td></tr>
+								</table>
+							</div>
+						</div>
+						<div class="row sidebar-row vertical-align">
+							<div class="col-xs-2">&nbsp;</div>
+						</div>
+						<div class="row sidebar-row vertical-align">
+							<div class="col-xs-2">DAQ Connection:</div>
+							<div class="col-xs-5 status vertical-align">
+								<table>
+									<tr><td width="180px" colspan="2">FrameReceiver:</td>
+									<td width="200px" align="center" id="fr-connected-1"></td>
+									<td width="200px" align="center" id="fr-connected-2"></td>
+									<td width="200px" align="center" id="fr-connected-3"></td>
+									<td width="200px" align="center" id="fr-connected-4"></td>
+									</tr>
+									<tr><td width="180px" colspan="2">FrameProcessor:</td>
+									<td width="200px" align="center" id="fp-connected-1"></td>
+									<td width="200px" align="center" id="fp-connected-2"></td>
+									<td width="200px" align="center" id="fp-connected-3"></td>
+									<td width="200px" align="center" id="fp-connected-4"></td>
+									</tr><!--<td colspan="2"><span><button id="fp-config-cmd">Initialise DAQ</button></span></td></tr>-->
+									<!--<tr><td colspan="2">Debug Level:</td><td align="center"><span><input type="text" id="fp-debug-level" size="3"></input></span></td></tr>-->
+									<tr><td colspan="2">Packets Received:</td>
+									<td align="center" id="fr-packets-1"></td>
+									<td align="center" id="fr-packets-2"></td>
+									<td align="center" id="fr-packets-3"></td>
+									<td align="center" id="fr-packets-4"></td>
+									<td align="center"><span><button id="fr-reset-cmd">Reset</button></span></td>
+									</tr>
+									<tr><td colspan="2">Empty Buffers:</td>
+									<td align="center" id="fr-empty-buffers-1"></td>
+									<td align="center" id="fr-empty-buffers-2"></td>
+									<td align="center" id="fr-empty-buffers-3"></td>
+									<td align="center" id="fr-empty-buffers-4"></td>
+									</tr>
+									<tr><td colspan="2">Processes:</td>
+									<td align="center" id="fp-processes-1"></td>
+									<td align="center" id="fp-processes-2"></td>
+									<td align="center" id="fp-processes-3"></td>
+									<td align="center" id="fp-processes-4"></td>
+									</tr>
+									<tr><td colspan="2">Rank:</td>
+									<td align="center" id="fp-rank-1"></td>
+									<td align="center" id="fp-rank-2"></td>
+									<td align="center" id="fp-rank-3"></td>
+									<td align="center" id="fp-rank-4"></td>
+									</tr>
+									<tr><td colspan="2">Writing:</td>
+									<td align="center" id="fp-writing-1"></td>
+									<td align="center" id="fp-writing-2"></td>
+									<td align="center" id="fp-writing-3"></td>
+									<td align="center" id="fp-writing-4"></td>
+									</tr>
+									<tr><td colspan="2">Values Written:</td>
+									<td align="center" id="fp-written-1"></td>
+									<td align="center" id="fp-written-2"></td>
+									<td align="center" id="fp-written-3"></td>
+									<td align="center" id="fp-written-4"></td>
+									</tr>
+									<!--
+									<tr><td>HDF Plugin:</td><td>Writing</td><td align="center" id="fp-hdf-writing"></td></tr>
+									-->
+									<tr><td colspan="2">File</td><td align="center" id="fp-hdf-file-path" colspan="4"></td></tr>
+									<tr><td colspan="2">File Path:</td><td colspan="4"><span><input type="text" id="set-fp-path"></input></span></td></tr>
+									<tr><td colspan="2">File Name:</td><td colspan="4"><span><input type="text" id="set-fp-filename"></input></span></td></tr>
+									<!--
+									<tr><td></td><td>Processes</td><td align="center" id="fp-hdf-processes"></td><td colspan="2">
+									-->
+									<tr><td colspan="2">Write</td>
+									<td align="center"><span><button id="fp-start-cmd">Start</button></span></td>
+									<td align="center"><span><button id="fp-stop-cmd">Stop</button></span></td></tr>
+									<!--
+									<tr><td></td><td>Rank</td><td align="center" id="fp-hdf-rank"></td></tr>
+									<tr><td></td><td>Values Written</td><td align="center" id="fp-hdf-written"></td></tr>-->
+								</table>
+							</div>
+						</div>
+						<div class="row sidebar-row vertical-align">
+							<div class="col-xs-2">&nbsp;</div>
+						</div>
+						<div class="row sidebar-row vertical-align">
+						</div>
+					</div> <!-- container-fluid -->
+				</div> <!--  well sidebar-nav-fixed -->
+			</div> <!-- span3 -->
+		</div> <!-- row fluid-row -->	
+	</div> <!--  container-fluid -->
+<!-- HOME PAGE -->
+	<div class="container-fluid dac-view page">
+		<div class="row fluid-row">
+			<div class="span3">
+				<div class="well sidebar-nav-fixed">
+					<div class="container-fluid">
+						<div class="row sidebar-title">
+							<h3>DACs</h3>
+						</div>
+						<div class="row sidebar-row vertical-align">
+							<div class="col-xs-2">&nbsp;</div>
+						</div>
+						<div class="row sidebar-row vertical-align">
+							<div class="col-xs-8 status vertical-align">
+								<table>
+									<tr>
+										<td></td>
+										<td id="fem1-title" width="640px"></td>
+										<td id="fem2-title" width="640px"></td>
+										<td id="fem3-title" width="640px"></td>
+										<td id="fem4-title" width="640px"></td>
+										<td id="fem5-title" width="640px"></td>
+										<td id="fem6-title" width="640px"></td>
+									</tr>
+									<tr>
+										<td>Threshold0</td>
+										<td id="fem1-Threshold0"></td>
+										<td id="fem2-Threshold0"></td>
+										<td id="fem3-Threshold0"></td>
+										<td id="fem4-Threshold0"></td>
+										<td id="fem5-Threshold0"></td>
+										<td id="fem6-Threshold0"></td>
+									</tr>
+									<tr>
+										<td>Threshold1</td>
+										<td id="fem1-Threshold1"></td>
+										<td id="fem2-Threshold1"></td>
+										<td id="fem3-Threshold1"></td>
+										<td id="fem4-Threshold1"></td>
+										<td id="fem5-Threshold1"></td>
+										<td id="fem6-Threshold1"></td>
+									</tr>
+									<tr>
+										<td>Threshold2</td>
+										<td id="fem1-Threshold2"></td>
+										<td id="fem2-Threshold2"></td>
+										<td id="fem3-Threshold2"></td>
+										<td id="fem4-Threshold2"></td>
+										<td id="fem5-Threshold2"></td>
+										<td id="fem6-Threshold2"></td>
+									</tr>
+									<tr>
+										<td>Threshold3</td>
+										<td id="fem1-Threshold3"></td>
+										<td id="fem2-Threshold3"></td>
+										<td id="fem3-Threshold3"></td>
+										<td id="fem4-Threshold3"></td>
+										<td id="fem5-Threshold3"></td>
+										<td id="fem6-Threshold3"></td>
+									</tr>
+									<tr>
+										<td>Threshold4</td>
+										<td id="fem1-Threshold4"></td>
+										<td id="fem2-Threshold4"></td>
+										<td id="fem3-Threshold4"></td>
+										<td id="fem4-Threshold4"></td>
+										<td id="fem5-Threshold4"></td>
+										<td id="fem6-Threshold4"></td>
+									</tr>
+									<tr>
+										<td>Threshold5</td>
+										<td id="fem1-Threshold5"></td>
+										<td id="fem2-Threshold5"></td>
+										<td id="fem3-Threshold5"></td>
+										<td id="fem4-Threshold5"></td>
+										<td id="fem5-Threshold5"></td>
+										<td id="fem6-Threshold5"></td>
+									</tr>
+									<tr>
+										<td>Threshold6</td>
+										<td id="fem1-Threshold6"></td>
+										<td id="fem2-Threshold6"></td>
+										<td id="fem3-Threshold6"></td>
+										<td id="fem4-Threshold6"></td>
+										<td id="fem5-Threshold6"></td>
+										<td id="fem6-Threshold6"></td>
+									</tr>
+									<tr>
+										<td>Threshold7</td>
+										<td id="fem1-Threshold7"></td>
+										<td id="fem2-Threshold7"></td>
+										<td id="fem3-Threshold7"></td>
+										<td id="fem4-Threshold7"></td>
+										<td id="fem5-Threshold7"></td>
+										<td id="fem6-Threshold7"></td>
+									</tr>
+									<tr>
+										<td>Preamp</td>
+										<td id="fem1-Preamp"></td>
+										<td id="fem2-Preamp"></td>
+										<td id="fem3-Preamp"></td>
+										<td id="fem4-Preamp"></td>
+										<td id="fem5-Preamp"></td>
+										<td id="fem6-Preamp"></td>
+									</tr>
+									<tr>
+										<td>Ikrum</td>
+										<td id="fem1-Ikrum"></td>
+										<td id="fem2-Ikrum"></td>
+										<td id="fem3-Ikrum"></td>
+										<td id="fem4-Ikrum"></td>
+										<td id="fem5-Ikrum"></td>
+										<td id="fem6-Ikrum"></td>
+									</tr>
+									<tr>
+										<td>Shaper</td>
+										<td id="fem1-Shaper"></td>
+										<td id="fem2-Shaper"></td>
+										<td id="fem3-Shaper"></td>
+										<td id="fem4-Shaper"></td>
+										<td id="fem5-Shaper"></td>
+										<td id="fem6-Shaper"></td>
+									</tr>
+									<tr>
+										<td>Disc</td>
+										<td id="fem1-Disc"></td>
+										<td id="fem2-Disc"></td>
+										<td id="fem3-Disc"></td>
+										<td id="fem4-Disc"></td>
+										<td id="fem5-Disc"></td>
+										<td id="fem6-Disc"></td>
+									</tr>
+									<tr>
+										<td>DiscLS</td>
+										<td id="fem1-DiscLS"></td>
+										<td id="fem2-DiscLS"></td>
+										<td id="fem3-DiscLS"></td>
+										<td id="fem4-DiscLS"></td>
+										<td id="fem5-DiscLS"></td>
+										<td id="fem6-DiscLS"></td>
+									</tr>
+									<tr>
+										<td>ShaperTest</td>
+										<td id="fem1-ShaperTest"></td>
+										<td id="fem2-ShaperTest"></td>
+										<td id="fem3-ShaperTest"></td>
+										<td id="fem4-ShaperTest"></td>
+										<td id="fem5-ShaperTest"></td>
+										<td id="fem6-ShaperTest"></td>
+									</tr>
+									<tr>
+										<td>DiscL</td>
+										<td id="fem1-DiscL"></td>
+										<td id="fem2-DiscL"></td>
+										<td id="fem3-DiscL"></td>
+										<td id="fem4-DiscL"></td>
+										<td id="fem5-DiscL"></td>
+										<td id="fem6-DiscL"></td>
+									</tr>
+									<tr>
+										<td>Test</td>
+										<td id="fem1-Test"></td>
+										<td id="fem2-Test"></td>
+										<td id="fem3-Test"></td>
+										<td id="fem4-Test"></td>
+										<td id="fem5-Test"></td>
+										<td id="fem6-Test"></td>
+									</tr>
+									<tr>
+										<td>DiscH</td>
+										<td id="fem1-DiscH"></td>
+										<td id="fem2-DiscH"></td>
+										<td id="fem3-DiscH"></td>
+										<td id="fem4-DiscH"></td>
+										<td id="fem5-DiscH"></td>
+										<td id="fem6-DiscH"></td>
+									</tr>
+									<tr>
+										<td>Delay</td>
+										<td id="fem1-Delay"></td>
+										<td id="fem2-Delay"></td>
+										<td id="fem3-Delay"></td>
+										<td id="fem4-Delay"></td>
+										<td id="fem5-Delay"></td>
+										<td id="fem6-Delay"></td>
+									</tr>
+									<tr>
+										<td>TPBufferIn</td>
+										<td id="fem1-TPBufferIn"></td>
+										<td id="fem2-TPBufferIn"></td>
+										<td id="fem3-TPBufferIn"></td>
+										<td id="fem4-TPBufferIn"></td>
+										<td id="fem5-TPBufferIn"></td>
+										<td id="fem6-TPBufferIn"></td>
+									</tr>
+									<tr>
+										<td>TPBufferOut</td>
+										<td id="fem1-TPBufferOut"></td>
+										<td id="fem2-TPBufferOut"></td>
+										<td id="fem3-TPBufferOut"></td>
+										<td id="fem4-TPBufferOut"></td>
+										<td id="fem5-TPBufferOut"></td>
+										<td id="fem6-TPBufferOut"></td>
+									</tr>
+									<tr>
+										<td>RPZ</td>
+										<td id="fem1-RPZ"></td>
+										<td id="fem2-RPZ"></td>
+										<td id="fem3-RPZ"></td>
+										<td id="fem4-RPZ"></td>
+										<td id="fem5-RPZ"></td>
+										<td id="fem6-RPZ"></td>
+									</tr>
+									<tr>
+										<td>GND</td>
+										<td id="fem1-GND"></td>
+										<td id="fem2-GND"></td>
+										<td id="fem3-GND"></td>
+										<td id="fem4-GND"></td>
+										<td id="fem5-GND"></td>
+										<td id="fem6-GND"></td>
+									</tr>
+									<tr>
+										<td>TPREF</td>
+										<td id="fem1-TPREF"></td>
+										<td id="fem2-TPREF"></td>
+										<td id="fem3-TPREF"></td>
+										<td id="fem4-TPREF"></td>
+										<td id="fem5-TPREF"></td>
+										<td id="fem6-TPREF"></td>
+									</tr>
+									<tr>
+										<td>FBK</td>
+										<td id="fem1-FBK"></td>
+										<td id="fem2-FBK"></td>
+										<td id="fem3-FBK"></td>
+										<td id="fem4-FBK"></td>
+										<td id="fem5-FBK"></td>
+										<td id="fem6-FBK"></td>
+									</tr>
+									<tr>
+										<td>Cas</td>
+										<td id="fem1-Cas"></td>
+										<td id="fem2-Cas"></td>
+										<td id="fem3-Cas"></td>
+										<td id="fem4-Cas"></td>
+										<td id="fem5-Cas"></td>
+										<td id="fem6-Cas"></td>
+									</tr>
+									<tr>
+										<td>TPREFA</td>
+										<td id="fem1-TPREFA"></td>
+										<td id="fem2-TPREFA"></td>
+										<td id="fem3-TPREFA"></td>
+										<td id="fem4-TPREFA"></td>
+										<td id="fem5-TPREFA"></td>
+										<td id="fem6-TPREFA"></td>
+									</tr>
+									<tr>
+										<td>TPREFB</td>
+										<td id="fem1-TPREFB"></td>
+										<td id="fem2-TPREFB"></td>
+										<td id="fem3-TPREFB"></td>
+										<td id="fem4-TPREFB"></td>
+										<td id="fem5-TPREFB"></td>
+										<td id="fem6-TPREFB"></td>
+									</tr>
+								</table>
+							</div>
+						</div>
+						<div class="row sidebar-row vertical-align">
+							<div class="col-xs-2">&nbsp;</div>
+						</div>
+						<div class="row sidebar-row vertical-align">
+							<div class="col-xs-2">&nbsp;</div>
+						</div>
+					</div> <!-- container-fluid -->
+				</div> <!--  well sidebar-nav-fixed -->
+			</div> <!-- span3 -->
+		</div> <!-- row fluid-row -->
+	</div> <!--  container-fluid -->
+
+    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <script src="js/jquery-3.2.1.min.js" type="text/javascript"></script>
+    <script src="js/jquery-ui.min.js" type="text/javascript"></script>
+    <!-- Include all compiled plugins (below), or include individual files as needed -->
+    <script src="js/bootstrap-3.3.7-dist/js/bootstrap.min.js" type="text/javascript"></script>
+    <script src="js/odin-data.js" type="text/javascript"></script>
+
+</body>
+</html>
+
