@@ -919,6 +919,7 @@ class HLExcaliburDetector(ExcaliburDetector):
             logging.error('UDP configuration failed')
 
     def shutdown(self):
+        logging.info("Shutdown called for hl_detector.py")
         self._executing_updates = False
         self.queue_command(None)
 
@@ -1386,6 +1387,7 @@ class HLExcaliburDetector(ExcaliburDetector):
             logging.debug("Fast update status: %s", status)
 
     def power_card_read(self):
+        logging.debug("Entering power_card_read")
         for powercard_params in self.POWERCARD_PARAMS:
             with self._comms_lock:
                 # Do not perform a slow read if an acquisition is taking place
@@ -1417,6 +1419,7 @@ class HLExcaliburDetector(ExcaliburDetector):
             logging.debug("Power card update status: %s", self._powercard_status)
 
     def slow_read(self):
+        logging.debug("Entering slow_read")
         status = {}
         with self._comms_lock:
             # Do not perform a slow read if an acquisition is taking place
@@ -1986,7 +1989,7 @@ class HLExcaliburDetector(ExcaliburDetector):
                     efuse_dict[efuse_name].append(None)
         else:
             response_status = -1
-            logging.debug("No EFUSE ID root directory supplied")
+            logging.error("No EFUSE ID root directory supplied")
         
         logging.debug("EFUSE: %s", efuse_dict)
         return response_status, efuse_dict
