@@ -118,7 +118,10 @@ class HLExcaliburDetector(ExcaliburDetector):
 
     FEM_PARAMS = [
         'fem_local_temp',
-        'fem_remote_temp',
+        'fem_remote_temp'
+        ]
+
+    MOLY_PARAMS = [
         'moly_temp',
         'moly_humidity'
         ]
@@ -783,6 +786,12 @@ class HLExcaliburDetector(ExcaliburDetector):
                     # Meta data here
                 })
 
+        for param in self.MOLY_PARAMS:
+            self._fem_status[param] = [None]
+            fem_dict[param] = (lambda p=param:self.get_fem_status(p), {
+                    # Meta data here
+                })
+
         # Initialise the powercard parameter tree
         fem_tree = ParameterTree(fem_dict)
         return fem_tree
@@ -971,6 +980,7 @@ class HLExcaliburDetector(ExcaliburDetector):
             if lv_enabled == 1:
                 try:
                     self._calibrating = 1
+                    self.clear_error()
                     self._state = HLExcaliburDetector.STATE_CALIBRATING
                     logging.info("Calibrating now...")
                     # Reset all calibration status values prior to loading a new calibration
@@ -1226,6 +1236,8 @@ class HLExcaliburDetector(ExcaliburDetector):
                     # Initialise the FEMs
                     logging.debug('Initialise has been called')
                     self.hl_initialise()
+                    logging.debug('Re-calibrating after an initialise')
+                    self.update_calibration('reload', 'manual')
                 elif path == 'command/force_calibrate':
                     self.update_calibration('reload', 'manual')
                 elif path == 'command/configure_dac':
@@ -1318,72 +1330,85 @@ class HLExcaliburDetector(ExcaliburDetector):
 
                 read_params = ExcaliburReadParameter(fem_params)
                 cmd_ok, err_msg, vals = self.hl_read_params(read_params)
-                logging.debug("Raw fast read status: %s", vals)
-                # Calculate the minimum number of frames from the fems, as this will be the actual complete frame count
-                frames_acquired = min(vals[self.STR_STATUS_FRAMES_ACQUIRED])
-                self._hw_frames_acquired = frames_acquired
-                #acq_completed = all(
-                #    [((state & acq_completion_state_mask) == acq_completion_state_mask) for state in vals['control_state']]
-                #)
-                if self._acquiring:
-                    # Record the frames acquired
-                    self._frames_acquired = frames_acquired
-                    self._fem_frames_acquired = vals[self.STR_STATUS_FRAMES_ACQUIRED][:]
-                    # We are acquiring so check to see if we have the correct number of frames
-                    if frames_acquired == self._acq_frame_count:
-                        self._acquiring = False
-                        # Acquisition has finished so we must send the stop command
-                        logging.debug("stop_acquisition called at end of a complete acquisition")
-                        self.hl_stop_acquisition()
-                    elif frames_acquired > self._acq_frame_count:
-                        # There has been an error in the acquisition, we should never have too many frames
-                        self._acquiring = False
-                        # Acquisition has finished so we must send the stop command
-                        logging.debug("stop_acquisition called at end of a complete acquisition")
-                        self.hl_stop_acquisition()
-                    else:
-                        if frames_acquired > 0:
-                            if self._frame_count_time is None:
-                                self._frame_start_count = frames_acquired
-                                self._frame_count_time = datetime.now()
-                            # Check to see if we have timed out
-                            delta_us = (datetime.now() - self._frame_count_time).microseconds
-                            delta_s = (datetime.now() - self._frame_count_time).seconds
-                            frame_rate = float(frames_acquired-self._frame_start_count) / (float(delta_s) + (float(delta_us) / 1000000.0))
+
+                if cmd_ok:
+                    logging.debug("Raw fast read status: %s", vals)
+                    # Calculate the minimum number of frames from the fems, as this will be the actual complete frame count
+                    frames_acquired = min(vals[self.STR_STATUS_FRAMES_ACQUIRED])
+                    self._hw_frames_acquired = frames_acquired
+                    #acq_completed = all(
+                    #    [((state & acq_completion_state_mask) == acq_completion_state_mask) for state in vals['control_state']]
+                    #)
+                    if self._acquiring:
+                        # Record the frames acquired
+                        self._frames_acquired = frames_acquired
+                        self._fem_frames_acquired = vals[self.STR_STATUS_FRAMES_ACQUIRED][:]
+                        # We are acquiring so check to see if we have the correct number of frames
+                        if frames_acquired == self._acq_frame_count:
+                            logging.info("Acquisition completed, FEMs report {} frames sent".format(frames_acquired))
+                            self._acquiring = False
+                            # Acquisition has finished so we must send the stop command
+                            logging.debug("stop_acquisition called at end of a complete acquisition")
+                            self.hl_stop_acquisition()
+                        elif frames_acquired > self._acq_frame_count:
+                            # There has been an error in the acquisition, we should never have too many frames
+                            self._acquiring = False
+                            # Acquisition has finished so we must send the stop command
+                            logging.debug("stop_acquisition called at end of a complete acquisition")
+                            self.hl_stop_acquisition()
                         else:
-                            self._frame_start_count = 0
-                            self._frame_count_time = None
-                            frame_rate = 0.0
+                            if frames_acquired > 0:
+                                if self._frame_count_time is None:
+                                    self._frame_start_count = frames_acquired
+                                    self._frame_count_time = datetime.now()
+                                # Check to see if we have timed out
+                                delta_us = (datetime.now() - self._frame_count_time).microseconds
+                                delta_s = (datetime.now() - self._frame_count_time).seconds
+                                frame_rate = float(frames_acquired-self._frame_start_count) / (float(delta_s) + (float(delta_us) / 1000000.0))
+                            else:
+                                self._frame_start_count = 0
+                                self._frame_count_time = None
+                                frame_rate = 0.0
 
-                        # We can only time out if we are not waiting for triggers
-                        if ExcaliburDefinitions.FEM_TRIGMODE_NAMES.index(self._trigger_mode) == ExcaliburDefinitions.FEM_TRIGMODE_INTERNAL:
-                            delta_t = (datetime.now() - self._acq_start_time).seconds
-                            # Work out the worst case for number of expected frames (assuming 25% plus 5 second startup)
-                            delta_t -= 5.0
-                            if delta_t > 0.0:
-                                expected_frames = int(delta_t / (self._acq_exposure * 1.25))
-                                logging.debug("We would have expected %d frames by now", expected_frames)
-                                if expected_frames > frames_acquired:
-                                    #self._acquiring = False
-                                    # Acquisition has finished so we must send the stop command
-                                    #self.set_error("stop_acquisition called due to a timeout")
-                                    logging.debug("stop_acquisition called due to a timeout")
-                                    #self.hl_stop_acquisition()
+                            # We can only time out if we are not waiting for triggers
+                            if ExcaliburDefinitions.FEM_TRIGMODE_NAMES.index(self._trigger_mode) == ExcaliburDefinitions.FEM_TRIGMODE_INTERNAL:
+                                delta_t = (datetime.now() - self._acq_start_time).seconds
+                                # Work out the worst case for number of expected frames (assuming 25% plus 5 second startup)
+                                delta_t -= 5.0
+                                if delta_t > 0.0:
+                                    expected_frames = int(delta_t / (self._acq_exposure * 1.25))
+                                    logging.debug("We would have expected %d frames by now", expected_frames)
+                                    if expected_frames > frames_acquired:
+                                        #self._acquiring = False
+                                        # Acquisition has finished so we must send the stop command
+                                        #self.set_error("stop_acquisition called due to a timeout")
+                                        logging.debug("stop_acquisition called due to a timeout")
+                                        #self.hl_stop_acquisition()
 
-                init_state = []
-                for fem_state in self.get('status/fem')['fem']:
-                    init_state.append(fem_state['state'])
+                    init_state = []
+                    for fem_state in self.get('status/fem')['fem']:
+                        init_state.append(fem_state['state'])
 
-                status = {self.STR_STATUS_FEM_STATE: init_state,
-                          self.STR_STATUS_FRAMES_ACQUIRED: self._frames_acquired,
-                          self.STR_STATUS_FEM_FRAMES: self._fem_frames_acquired,
-                          self.STR_STATUS_FRAME_RATE: frame_rate,
-                          self.STR_STATUS_ACQUISITION_COMPLETE: (not self._acquiring)}
+                    status = {self.STR_STATUS_FEM_STATE: init_state,
+                            self.STR_STATUS_FRAMES_ACQUIRED: self._frames_acquired,
+                            self.STR_STATUS_FEM_FRAMES: self._fem_frames_acquired,
+                            self.STR_STATUS_FRAME_RATE: frame_rate,
+                            self.STR_STATUS_ACQUISITION_COMPLETE: (not self._acquiring)}
+                else:
+                    # Here we have detected a possible loss of connection
+                    logging.error("Connection to hardware lost in fast_read method")
+                    self.connection_lost()
+
+
             with self._param_lock:
-                self._fem_state = status[self.STR_STATUS_FEM_STATE]
-                self._fem_frames = status[self.STR_STATUS_FEM_FRAMES]
-                self._frame_rate = status[self.STR_STATUS_FRAME_RATE]
-                self._acquisition_complete = status[self.STR_STATUS_ACQUISITION_COMPLETE]
+                if self.STR_STATUS_FEM_STATE in status:
+                    self._fem_state = status[self.STR_STATUS_FEM_STATE]
+                if self.STR_STATUS_FEM_FRAMES in status:
+                    self._fem_frames = status[self.STR_STATUS_FEM_FRAMES]
+                if self.STR_STATUS_FRAME_RATE in status:
+                    self._frame_rate = status[self.STR_STATUS_FRAME_RATE]
+                if self.STR_STATUS_ACQUISITION_COMPLETE in status:
+                    self._acquisition_complete = status[self.STR_STATUS_ACQUISITION_COMPLETE]
             logging.debug("Fast update status: %s", status)
 
     def power_card_read(self):
@@ -1408,6 +1433,10 @@ class HLExcaliburDetector(ExcaliburDetector):
                                         self._powercard_status[param] = val[0]
                                     else:
                                         self._powercard_status[param] = val
+                    else:
+                        # Here we have detected a possible loss of connection
+                        logging.error("Connection to hardware lost in power_card_read method")
+                        self.connection_lost()
         
         with self._param_lock:
             # Check for the current HV enabled state
@@ -1423,12 +1452,21 @@ class HLExcaliburDetector(ExcaliburDetector):
         status = {}
         with self._comms_lock:
             # Do not perform a slow read if an acquisition is taking place
-            if not self._acquiring:
-                # Connect to the hardware
-                if not self.connected:
-                    self.connect({'state': True})
+            if not self._acquiring and self.connected:
 
-                fem_params = self.FEM_PARAMS
+                # First check the fem params
+                fe_params = self.FEM_PARAMS
+                read_params = ExcaliburReadParameter(fe_params)
+                cmd_ok, err_msg, status = self.hl_read_params(read_params)
+                if cmd_ok:
+                    with self._param_lock:
+                        for param in fe_params:
+                            if param in status:
+                                logging.debug("FEM param: {} and value: {}".format(param, status[param]))
+                                val = status[param]
+                                self._fem_status[param] = val
+
+                fem_params = self.MOLY_PARAMS
                 supply_params = self.SUPPLY_PARAMS
 
                 fe_params = fem_params + supply_params + ['mpx3_dac_out']
@@ -1471,6 +1509,7 @@ class HLExcaliburDetector(ExcaliburDetector):
                         self._lv_enabled = lv_enabled
 
                 else:
+
                     with self._param_lock:
                         for param in fe_params:
                             if param in supply_params:
@@ -1481,6 +1520,8 @@ class HLExcaliburDetector(ExcaliburDetector):
                             logging.error("Lost LV enabled.  Check for safety trip indicator")
                             self.hl_toggle_lv()
                         self._lv_enabled = 0
+                        self._read_efuse_ids = False
+                        self.set_error("FEM read failed check low voltage")
 
                 if not self._read_efuse_ids:
                     # Only read the efuse IDs if the LV is enabled
@@ -1490,6 +1531,17 @@ class HLExcaliburDetector(ExcaliburDetector):
                         logging.debug("EFUSE return status: %s", response_status)
                         if response_status == 0:
                             self._read_efuse_ids = True
+
+    def connection_lost(self):
+        # Here we have detected a loss of connection
+        self.set_error("Connection to hardware lost")
+        self.connect({'state': False})
+        for param in self._powercard_status:
+            self._powercard_status[param] = None
+        for param in self.FEM_PARAMS:
+            self._fem_status[param] = [None]
+        for param in self.SUPPLY_PARAMS:
+            self._supply_status[param] = [None]
 
     def hl_arm_detector(self):
         # Perform all of the actions required to get the detector ready for an acquisition
@@ -1825,7 +1877,7 @@ class HLExcaliburDetector(ExcaliburDetector):
             self._dacs = {}
         logging.info("Sending a fe_vdd_enable param set to 1")
         params = []
-        params.append(ExcaliburParameter('fe_vdd_enable', [[1]], fem=self.powercard_fem_idx+1))
+        params.append(ExcaliburParameter('fe_vdd_enable', [[1]]))
         self.hl_write_params(params)
         logging.info("Sending the fe_init command")
         self.hl_do_command('fe_init')
