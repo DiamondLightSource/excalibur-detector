@@ -1797,7 +1797,7 @@ class HLExcaliburDetector(ExcaliburDetector):
                 # Send start acquisition command
                 logging.info('Sending start acquisition command')
                 self.hl_start_acquisition()
-                logging.info('Start acquisition completed')
+                logging.info('Detector armed')
 
     def hl_do_24bit_acquisition(self):
         logging.info('24 bit mode acquisition loop entered...')
