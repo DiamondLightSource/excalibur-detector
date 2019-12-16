@@ -1,5 +1,5 @@
 PROGRAM=excalibur-detector
-VERSION=0.9.2
+VERSION=0.10.1
 TAR_FILE=none
 
 build()
@@ -29,5 +29,9 @@ build()
     export BOOST_ROOT=$BOOST_PREFIX
     export SRC=$BUILD_SCRIPT_DIR/control
     setuptools_build # Defined in Python/CONFIG
+
+    # Install the static html files for the odin control server
+    mkdir ${TARGET_PREFIX}/html
+    cp -r $BUILD_SCRIPT_DIR/control/static ${TARGET_PREFIX}/html/
 }
 

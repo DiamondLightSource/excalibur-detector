@@ -2,6 +2,11 @@
 
 Module excalibur-detector
 
+## [0-10-1] - 2019-12-16
+### Changed
+- Improved log message to notify when the detector is armed
+- Updated version in build file
+
 ## [0-10-0] - 2019-12-02
 ### Added
 - Added RELEASE.md notes file
