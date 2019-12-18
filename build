@@ -13,7 +13,7 @@ build()
     
     ${CMAKE_BIN}/cmake \
                        -DBoost_NO_BOOST_CMAKE=ON \
-                       -DODINDATA_ROOT_DIR=${ODINDATA_PREFIX} \
+                       -DODINDATA_ROOT_DIR=${ODIN_DATA_PREFIX} \
                        -DZEROMQ_ROOTDIR=${ZEROMQ_PREFIX} \
                        -DLOG4CXX_ROOT_DIR=${LOG4CXX_PREFIX} \
                        -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON \
@@ -24,7 +24,7 @@ build()
     # Removing pesky dist dir just in case a previous build is left over
     rm -rf $BUILD_SCRIPT_DIR/control/dist 
 
-    python_depends ENUM CONFIGPARSER ODINCONTROL ODINDATA
+    python_depends ENUM CONFIGPARSER ODIN_CONTROL ODIN_DATA
     
     export BOOST_ROOT=$BOOST_PREFIX
     export SRC=$BUILD_SCRIPT_DIR/control
