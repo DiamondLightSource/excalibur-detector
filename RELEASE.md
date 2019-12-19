@@ -2,6 +2,10 @@
 
 Module excalibur-detector
 
+## [0-10-2] - 2019-12-19
+### Changed
+- Update to odin-data 1-4-0dls1
+
 ## [0-10-1] - 2019-12-16
 ### Changed
 - Improved log message to notify when the detector is armed
