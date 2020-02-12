@@ -2,6 +2,10 @@
 
 Module excalibur-detector
 
+## [0-10-3] - 2020-02-12
+### Changed
+- Fixed acquisition bug that could drop the acquire parameter too early
+
 ## [0-10-2] - 2019-12-19
 ### Changed
 - Update to odin-data 1-4-0dls1

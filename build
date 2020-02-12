@@ -1,5 +1,5 @@
 PROGRAM=excalibur-detector
-VERSION=0.10.2
+VERSION=0.10.3
 TAR_FILE=none
 
 build()

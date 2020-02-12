@@ -1400,16 +1400,16 @@ class HLExcaliburDetector(ExcaliburDetector):
                     self.connection_lost()
 
 
-            with self._param_lock:
-                if self.STR_STATUS_FEM_STATE in status:
-                    self._fem_state = status[self.STR_STATUS_FEM_STATE]
-                if self.STR_STATUS_FEM_FRAMES in status:
-                    self._fem_frames = status[self.STR_STATUS_FEM_FRAMES]
-                if self.STR_STATUS_FRAME_RATE in status:
-                    self._frame_rate = status[self.STR_STATUS_FRAME_RATE]
-                if self.STR_STATUS_ACQUISITION_COMPLETE in status:
-                    self._acquisition_complete = status[self.STR_STATUS_ACQUISITION_COMPLETE]
-            logging.debug("Fast update status: %s", status)
+                with self._param_lock:
+                    if self.STR_STATUS_FEM_STATE in status:
+                        self._fem_state = status[self.STR_STATUS_FEM_STATE]
+                    if self.STR_STATUS_FEM_FRAMES in status:
+                        self._fem_frames = status[self.STR_STATUS_FEM_FRAMES]
+                    if self.STR_STATUS_FRAME_RATE in status:
+                        self._frame_rate = status[self.STR_STATUS_FRAME_RATE]
+                    if self.STR_STATUS_ACQUISITION_COMPLETE in status:
+                        self._acquisition_complete = status[self.STR_STATUS_ACQUISITION_COMPLETE]
+                logging.debug("Fast update status: %s", status)
 
     def power_card_read(self):
         logging.debug("Entering power_card_read")
