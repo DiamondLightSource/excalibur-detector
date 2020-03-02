@@ -73,6 +73,8 @@ class ExcaliburTestApp(object):
     
     def __init__(self):
         
+        self.manual_24bit_mode = False
+
         self.defaults = ExcaliburTestAppDefaults()
         
         try:
@@ -818,9 +820,10 @@ class ExcaliburTestApp(object):
 
         acq_loops = 1
         num_frames = self.args.num_frames
-           
-        # 24-bit reads are a special case, so set things up appropriately in this mode    
-        if self.args.counter_depth == 24:
+
+        # 24-bit reads are a special case in the old manual firmware mode, so set things up
+        # appropriately in this mode
+        if self.args.counter_depth == 24 and self.manual_24bit_mode:
 
             # Force counter select to C1, C0 is read manually afterwards
             self.args.counter_select = 1 
@@ -943,7 +946,7 @@ class ExcaliburTestApp(object):
     
                 frames_acquired = self.await_acquistion_completion(0x40000000)
                 
-                if self.args.counter_depth == 24:
+                if self.args.counter_depth == 24 and self.manual_24bit_mode:
                     self.client.do_command('stop_acquisition')
                     self.do_c0_matrix_read()
                 
