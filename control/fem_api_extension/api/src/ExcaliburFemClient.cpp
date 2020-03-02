@@ -23,6 +23,7 @@ ExcaliburFemClient::ExcaliburFemClient(void* aCtlHandle, const CtlCallbacks* aCa
     const CtlConfig* aConfig, unsigned int aTimeoutInMsecs) :
     FemClient(aConfig->femNumber, aConfig->femAddress, aConfig->femPort, aTimeoutInMsecs),
     mMpx3GlobalTestPulseEnable(false),
+    mCurrentMpx3CounterDepth(unknownCounterDepth),
     mMpx3TestPulseCount(4000),
     mDataReceiverEnable(true),
     mCtlHandle(aCtlHandle),
@@ -393,6 +394,16 @@ void ExcaliburFemClient::startAcquisition(void)
   mpx3CounterSelect counterSelect = mMpx3CounterSelect;
   bool doMatrixClearFirst = true;
 
+  // Latch the current counter depth so it is tracked to the end of the acquisition
+  mCurrentMpx3CounterDepth = mMpx3OmrParams[0].counterDepth;
+
+  // Override the selected counter in 24-bit mode as we must read counter 1 first
+  if (mCurrentMpx3CounterDepth == counterDepth24)
+  {
+    FEMLOG(mFemId, logDEBUG) << "Selecting MPX3 counter 1 for 24-bit mode acquisition";
+    counterSelect = mpx3Counter1;
+  }
+
   // Select various parameters based on operation mode
   switch (mOperationMode)
   {
@@ -456,7 +467,7 @@ void ExcaliburFemClient::startAcquisition(void)
   {
       FEMLOG(mFemId, logDEBUG) << "LFSR decoding bypass is enabled";
   }
-  switch (mMpx3OmrParams[0].counterDepth)
+  switch (mCurrentMpx3CounterDepth)
   {
     case counterDepth1:
       lfsrMode = lfsr12Bypass;
@@ -474,20 +485,21 @@ void ExcaliburFemClient::startAcquisition(void)
     {
       std::ostringstream msg;
       msg << "Cannot start acquisition, illegal counter depth specified: "
-          << mMpx3OmrParams[0].counterDepth;
+          << mCurrentMpx3CounterDepth;
       throw FemClientException((FemClientErrorCode) excaliburFemClientIllegalCounterDepth,
                                msg.str());
     }
       break;
   }
 
+#ifdef MANUAL_24BIT_MODE
   // Reset the 10GigE UDP counters on the FEM unless this is a matrix read of counter 0 in 24-bit
   // mode, in which case the frame counter should increment
 
-//  if ((mMpx3OmrParams[0].counterDepth == counterDepth24) &&
+//  if ((mCurrentMpx3CounterDepth == counterDepth24) &&
 //      (mOperationMode == excaliburOperationModeMatrixRead) &&
 //      (mMpx3CounterSelect == mpx3Counter0))
-  if (mMpx3OmrParams[0].counterDepth == counterDepth24)
+  if (mCurrentMpx3CounterDepth == counterDepth24)
   {
 //    FEMLOG(mFemId, logDEBUG) << "Not resetting UDP frame counter in 24-bit C0 read acquisition";
     FEMLOG(mFemId, logDEBUG) << "Not resetting UDP frame counter in 24-bit acquisition";
@@ -497,6 +509,10 @@ void ExcaliburFemClient::startAcquisition(void)
     FEMLOG(mFemId, logDEBUG) << "Resetting UDP frame counter";
     this->asicControlUdpCounterReset();
   }
+#else
+  FEMLOG(mFemId, logDEBUG) << "Resetting UDP frame counter";
+  this->asicControlUdpCounterReset();
+#endif
 
   // Configure the 10GigE UDP interface on the FEM
   FEMLOG(mFemId, logDEBUG) << "Configuring UDP data interface: source IP:" << mDataSourceIpAddress << " MAC:"
@@ -531,7 +547,7 @@ void ExcaliburFemClient::startAcquisition(void)
   std::string dataDestIpAddress[kFarmModeLutSize];
   unsigned int dataDestPort[kFarmModeLutSize];
 
-  if (mMpx3OmrParams[0].counterDepth == counterDepth24)
+  if (mCurrentMpx3CounterDepth == counterDepth24)
   {
       expand_lut = true;
       dataFarmModeNumDestinations *= 2;
@@ -578,7 +594,7 @@ void ExcaliburFemClient::startAcquisition(void)
   }
 
   // Set up counter depth for ASIC control based on current OMR settings
-  this->asicControlCounterDepthSet(mMpx3OmrParams[0].counterDepth);
+  this->asicControlCounterDepthSet(mCurrentMpx3CounterDepth);
 
   // Set LFSR decode mode
   this->asicControlLfsrDecodeModeSet(lfsrMode);
@@ -592,6 +608,19 @@ void ExcaliburFemClient::startAcquisition(void)
 
   // Set up the acquisition DMA controller and arm it, based on operation mode
   unsigned int dmaSize = this->asicReadoutDmaSize();
+
+#ifndef MANUAL_24BIT_MODE
+  // In auto 24-bit readout mode, increase the buffer descriptor coalesce parameter
+  // in the DMA controller to allow two counters to be read out of ASICs before 
+  // data is transferred out of memory 
+  if (mCurrentMpx3CounterDepth == counterDepth24)
+  {
+    bdCoalesce *= 2;
+    FEMLOG(mFemId, logDEBUG) << "Setting buffer descriptor coalesce parameter to "
+      << bdCoalesce << " for 24 bit mode readout";
+  } 
+#endif
+
   //FEMLOG(mFemId, logDEBUG) << "Configuring DMA controller";
   this->acquireConfig(acqMode, dmaSize, 0, numAcq, bdCoalesce);
   //FEMLOG(mFemId, logDEBUG) << "Starting DMA controller";
@@ -776,6 +805,16 @@ void ExcaliburFemClient::startAcquisition(void)
       executeCmd |= asicTestPulseEnable;
     }
 
+#ifndef MANUAL_24BIT_MODE
+    // Set dual counter read mode for 24-bit readouts
+    if (mCurrentMpx3CounterDepth == counterDepth24)
+    {
+      FEMLOG(mFemId, logDEBUG) << "Enabling dual counter read for 24-bit mode";
+      executeCmd |= asicDualCounterRead;
+    }
+#endif
+    //
+
     // Build the configuration register based on trigger mode and polarity
     unsigned int controlConfigRegister = 0;
 
@@ -874,100 +913,127 @@ void ExcaliburFemClient::stopAcquisition(void)
 
   // Check if acquisition is active in data receiver. If so, perform the steps necessary to bring the
   // system to a graceful halt. This is dependent on the operation mode currently in force.
-  if (mFemDataReceiver != 0)
+//  if (mFemDataReceiver != 0)
+//  {
+//    if (mFemDataReceiver->acqusitionActive())
+//    {
+
+  int subFramesPerFrame;
+  int counterReadoutTimeUs;
+  if (mCurrentMpx3CounterDepth == counterDepth24) {
+    subFramesPerFrame = 4;
+    counterReadoutTimeUs = 1000;
+  }
+  else
   {
-    if (mFemDataReceiver->acqusitionActive())
+    subFramesPerFrame = 2;
+    counterReadoutTimeUs = 500;
+  }
+  
+
+  switch (mOperationMode)
+  {
+    case excaliburOperationModeNormal:
     {
-      switch (mOperationMode)
-      {
-        case excaliburOperationModeNormal:
-        {
-          FEMLOG(mFemId, logINFO) << "Normal mode acquisition is still active, sending stop to FEM ASIC control";
-          this->asicControlCommandExecute(asicStopAcquisition);
+      FEMLOG(mFemId, logDEBUG) << "Normal mode acquisition: sending stop command to ASIC control";
+      u32 controlRegState = this->rdmaRead(kExcaliburAsicControlReg);
+      controlRegState |= asicStopAcquisition;
+      this->asicControlCommandExecute((asicControlCommand)controlRegState);
 
-          // Wait at least the acquisition time (shutter time) plus 500us readout time before
-          // checking the state to allow last frame to be read out
-          usleep((mAcquisitionTimeMs * 1000) + 500);
+      // Wait at least the acquisition time (shutter time) plus 500us readout time before
+      // checking the state to allow last frame to be read out
+      usleep((mAcquisitionTimeMs * 1000) + counterReadoutTimeUs);
 
-          // Read control state register for diagnostics
-          u32 ctrlState = this->rdmaRead(kExcaliburAsicCtrlState1);
-          framesRead = this->rdmaRead(kExcaliburAsicCtrlFrameCount);
-          FEMLOG(mFemId, logINFO) << "FEM ASIC control has completed " << framesRead
-              << " frames, control state register1: 0x" << std::hex << ctrlState << std::dec;
+      // Read control state register for diagnostics
+      u32 ctrlState = this->rdmaRead(kExcaliburAsicCtrlState1);
+      framesRead = this->rdmaRead(kExcaliburAsicCtrlFrameCount);
+      FEMLOG(mFemId, logDEBUG) << "FEM ASIC control has completed " << framesRead
+          << " frames, control state register1: 0x" << std::hex << ctrlState << std::dec;
+        
+    }
+      break;
+    case excaliburOperationModeBurst: // Deliberate fall-thru for these modes where async stop not supported
+    case excaliburOperationModeHistogram:
+    case excaliburOperationModeMatrixRead:
+        FEMLOG(mFemId, logWARNING)
+          << "Cannot complete asynchronous stop in this operation mode, ignoring stop command while running";
+      doFullAcqStop = false;
+      break;
 
-        }
-          break;
-        case excaliburOperationModeBurst: // Deliberate fall-thru for these modes where async stop not supported
-        case excaliburOperationModeHistogram:
-        case excaliburOperationModeMatrixRead:
-            FEMLOG(mFemId, logWARNING)
-              << "Cannot complete asynchronous stop in this operation mode, ignoring stop command while running";
-          doFullAcqStop = false;
-          break;
-
-        case excaliburOperationModeDacScan:
-        {
+    case excaliburOperationModeDacScan:
+    {
 #ifdef MPX3_0
-          FEMLOG(mFemId, logWARNING) << "Current FEM firmware does not support asynchronous stop of DAC scan";
-          doFullAcqStop = false;
+      FEMLOG(mFemId, logWARNING) << "Current FEM firmware does not support asynchronous stop of DAC scan";
+      doFullAcqStop = false;
 #else
-          FEMLOG(mFemId, logINFO) << "Performing asynchronous stop of DAC scan";
-          framesRead = this->dacScanAbort();
+      FEMLOG(mFemId, logINFO) << "Performing asynchronous stop of DAC scan";
+      framesRead = this->dacScanAbort();
 
 #endif
-        }
-          break;
+    }
+      break;
 
-        default:
-        {
-          std::ostringstream msg;
-          msg << "Cannot stop acquisition, illegal operation mode specified: " << mOperationMode;
-          throw FemClientException((FemClientErrorCode) excaliburFemClientIllegalOperationMode,
-                                   msg.str());
-        }
-          break;
+    default:
+    {
+      std::ostringstream msg;
+      msg << "Cannot stop acquisition, illegal operation mode specified: " << mOperationMode;
+      throw FemClientException((FemClientErrorCode) excaliburFemClientIllegalOperationMode,
+                                msg.str());
+    }
+      break;
 
-      } // End of switch
+  } // End of switch
 
-      // Wait until DMA engine has transferred out the number of frames read out by the
-      // ASIC control block. This loop will repeat until ten times the frame acquisition
-      // length, after which it will assume that the completion has timed out
-      bool acqCompletePending = true;
-      int numAcqCompleteLoops = 0;
-      int maxAcqCompleteLoops = 10;
+  // Wait until DMA engine has transferred out the number of frames read out by the
+  // ASIC control block. This loop will repeat until ten times the frame acquisition
+  // length, after which it will assume that the completion has timed out
+  bool acqCompletePending = true;
+  int numAcqCompleteLoops = 0;
+  int maxAcqCompleteLoops = 10;
 
-      while (acqCompletePending && (numAcqCompleteLoops < maxAcqCompleteLoops))
-      {
-        FemAcquireStatus acqState = this->acquireStatus();
-        FEMLOG(mFemId, logINFO) << "Asynchronous stop of DMA acquisition loop: " << numAcqCompleteLoops
-            << " attempts, ACQ state: " << acqState.state << " sent BDs: " << acqState.totalSent;
+  while (acqCompletePending && (numAcqCompleteLoops < maxAcqCompleteLoops))
+  {
+    FemAcquireStatus acqState = this->acquireStatus();
+    FEMLOG(mFemId, logDEBUG) << "Awaiting DMA completion: " << numAcqCompleteLoops
+        << " attempts, ACQ state: " << acqState.state << " sent BDs: " << acqState.totalSent;
 
-        if (acqState.totalSent >= framesRead * 2)
-        {
-          FEMLOG(mFemId, logDEBUG) << "DMA controller has transmitted " << framesRead << " frames OK";
-          acqCompletePending = false;
-        }
-        else
-        {
-          numAcqCompleteLoops++;
-          usleep(mAcquisitionTimeMs * 1000);
-        }
-      }
-      if (acqCompletePending)
-      {
-        FEMLOG(mFemId, logERROR) << "ERROR: DMA transfer of " << framesRead
-            << " failed to complete in expected time during async stop";
-      }
-
+    if (acqState.totalSent >= framesRead * subFramesPerFrame)
+    {
+      FEMLOG(mFemId, logDEBUG) << "DMA controller has transmitted " << framesRead << " frames OK";
+      acqCompletePending = false;
+    }
+    else
+    {
+      numAcqCompleteLoops++;
+      usleep(mAcquisitionTimeMs * 1000);
     }
   }
+  if (acqCompletePending)
+  {
+    FemAcquireStatus acqState = this->acquireStatus();
+    FEMLOG(mFemId, logWARNING) << "DMA transfer of " << framesRead
+        << " frames failed to complete in expected time during async stop";
+    FEMLOG(mFemId, logWARNING) << "Expected " << framesRead * subFramesPerFrame 
+      << " BDs TXed, got " << acqState.totalSent 
+      << " RX: top " << acqState.totalRecvTop << " bottom " << acqState.totalRecvBot;
+  }
+
+//    }
+//  }
 
   if (doFullAcqStop)
   {
 
     // Send ACQUIRE stop command to the FEM
-    //FEMLOG(mFemId, logDEBUG) << "Sending acquire STOP to FEM";
-    this->acquireStop();
+    FEMLOG(mFemId, logDEBUG) << "Sending stop command to DMA controller";
+    try 
+    {
+      this->acquireStop();
+    }
+    catch (FemClientException& e)
+    {
+        FEMLOG(mFemId, logWARNING) << e.what();
+    }
 
     if (mFemDataReceiver != 0)
     {
@@ -979,10 +1045,14 @@ void ExcaliburFemClient::stopAcquisition(void)
       mFemDataReceiver = 0;
     }
 
-    // Reset ASIC control firmware block
-    //FEMLOG(mFemId, logDEBUG) << "Sending ASIC control reset to FEM";
-    this->asicControlReset();
+    // Clear the stop command bit from the ASIC command word register
+    FEMLOG(mFemId, logDEBUG) << "Clearing stop command from ASIC control";
+    this->asicControlCommandExecute((asicControlCommand)0);
 
+    // Reset ASIC control firmware block
+    FEMLOG(mFemId, logDEBUG) << "Sending reset command to ASIC control";
+    this->asicControlReset();
+    
     //FEMLOG(mFemId, logDEBUG) << "End of doFullAcqStop clause";
   }
 }
@@ -1148,7 +1218,7 @@ void ExcaliburFemClient::dataReceiverEnable(unsigned int aEnable)
 
 unsigned int ExcaliburFemClient::frameCountGet(void)
 {
-  return (unsigned int) (this->rdmaRead(kExcaliburAsicCtrlFrameCount - 1));
+  return (unsigned int) (this->rdmaRead(kExcaliburAsicCtrlFrameCount));
 }
 
 unsigned int ExcaliburFemClient::controlStateGet(void)
