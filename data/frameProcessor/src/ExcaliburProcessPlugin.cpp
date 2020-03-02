@@ -316,6 +316,7 @@ namespace FrameProcessor
       frame_meta.set_dataset_name("data");
 
       // Set the frame number in frame metadata
+#ifdef MANUAL_24BIT_MODE
       if (asic_counter_depth_ == DEPTH_24_BIT)
       {
         // Only every other incoming frame results in a new frame
@@ -325,6 +326,9 @@ namespace FrameProcessor
       {
         frame_meta.set_frame_number(static_cast<long long>(hdr_ptr->frame_number));
       }
+#else
+      frame_meta.set_frame_number(static_cast<long long>(hdr_ptr->frame_number));
+#endif
 
       // set frame data type based on the output image
       switch (asic_counter_depth_)
