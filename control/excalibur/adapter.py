@@ -30,6 +30,7 @@ class ExcaliburAdapter(ApiAdapter):
     system, transforming the REST-like API HTTP verbs into the appropriate EXCALIBUR detector
     control actions
     """
+    use_raw_detector = False
 
     def __init__(self, **kwargs):
         """Initialise the ExcaliburAdapter object.
@@ -43,7 +44,7 @@ class ExcaliburAdapter(ApiAdapter):
         self.path_regexp = re.compile('(.*?)/(.*)')
 
         # Determine if the raw (low-level) or high-level detector class is to be used
-        use_raw_detector = bool(self.options.get('raw_detector', False))
+        use_raw = bool(self.options.get('raw_detector', ExcaliburAdapter.use_raw_detector))
 
         # Parse the FEM connection information out of the adapter options and initialise the
         # detector object
@@ -51,12 +52,12 @@ class ExcaliburAdapter(ApiAdapter):
         if 'detector_fems' in self.options:
             fems = [tuple(fem.strip().split(':')) for fem in self.options['detector_fems'].split(',')]
             try:
-                if use_raw_detector:
+                if use_raw:
                     self.detector = ExcaliburDetector(fems)
                 else:
                     self.detector = HLExcaliburDetector(fems)
                 logging.debug('ExcaliburAdapter loaded with {} detector'.format(
-                    'raw' if use_raw_detector else 'high-level'
+                    'raw' if use_raw else 'high-level'
                 ))
                 
                 if 'powercard_fem_idx' in self.options:
