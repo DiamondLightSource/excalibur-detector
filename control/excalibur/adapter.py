@@ -30,7 +30,6 @@ class ExcaliburAdapter(ApiAdapter):
     system, transforming the REST-like API HTTP verbs into the appropriate EXCALIBUR detector
     control actions
     """
-    use_raw_detector = False
 
     def __init__(self, **kwargs):
         """Initialise the ExcaliburAdapter object.
@@ -44,7 +43,7 @@ class ExcaliburAdapter(ApiAdapter):
         self.path_regexp = re.compile('(.*?)/(.*)')
 
         # Determine if the raw (low-level) or high-level detector class is to be used
-        use_raw = bool(self.options.get('raw_detector', ExcaliburAdapter.use_raw_detector))
+        use_raw_detector = bool(self.options.get('raw_detector', False))
 
         # Parse the FEM connection information out of the adapter options and initialise the
         # detector object
