@@ -41,6 +41,7 @@ public:
   u8 getCommand(void);
   u8 getState(void);
   u32 getAddress(void);
+  u8 getBus(void);
   std::vector<u8> getPayload(void);
 
   bool payloadIncomplete(void);

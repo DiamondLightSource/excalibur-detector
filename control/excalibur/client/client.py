@@ -263,6 +263,11 @@ class ExcaliburClient(object):
         (succeeded, _) = self.exec_command(cmd, cmd_params)
         return succeeded
             
+    def ping(self):
+
+        self.logger.info('Pinging detector FEM(s)')
+        (ping_ok, _) = self.exec_command('ping')
+
     def fe_init(self):
              
         self.logger.info('Initialising front-end')

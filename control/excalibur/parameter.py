@@ -203,3 +203,4 @@ class ExcaliburFrontEndCommandMap(OrderedDict):
         self['load_dacconfig'] = (FEM_OP_LOADDACCONFIG, 'DAC config load', FEM_RTN_INTERNALERROR)
         self['fem_reboot'] = (FEM_OP_REBOOT, 'FEM reboot', FEM_RTN_INTERNALERROR)
         self['reset_udp_counter'] = (FEM_OP_RESET_UDP_COUNTER, 'reset udp counter', FEM_RTN_INTERNALERROR)
+        self['ping'] = (FEM_OP_PING, 'ping', FEM_RTN_INTERNALERROR)

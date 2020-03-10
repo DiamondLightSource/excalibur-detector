@@ -83,6 +83,7 @@ public:
 
   // end of added for zero copy
 
+  void ping(void);
   virtual void command(unsigned int command);
   std::vector<u8> commandAcquire(unsigned int aAcqCommand, FemAcquireConfiguration* apConfig = 0);
 
@@ -136,6 +137,7 @@ private:
   tcp::socket mSocket;    ///< Client connection socket
   boost::asio::deadline_timer mDeadline;  ///< Internal timeout deadline timer
   unsigned int mTimeout;   ///< timeout in milliseconds
+  u8 mLastPingSeq; //< Last ping sequence ID
 
   std::size_t receivePart(std::vector<u8>& aBuffer, boost::system::error_code& aError);
   void checkDeadline(void);

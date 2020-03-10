@@ -106,6 +106,8 @@ class ExcaliburTestApp(object):
         cmd_group = parser.add_argument_group('Commands')
         cmd_group.add_argument('--dump', action='store_true',
             help='Dump the state of the control server')
+        cmd_group.add_argument('--ping', action='store_true',
+            help='Ping the detector system FEM(s)')
         cmd_group.add_argument('--reset', '-r', action='store_true', 
             help='Issue front-end reset/init')
         cmd_group.add_argument('--lvenable', type=int, dest='lv_enable',
@@ -283,6 +285,9 @@ class ExcaliburTestApp(object):
             ','.join([str(fem_id) for fem_id in self.fem_ids])
         ))
         
+        if self.args.ping:
+            self.do_ping()
+
         if self.args.fwversion:
             self.do_fw_version_read()
                       
@@ -328,6 +333,9 @@ class ExcaliburTestApp(object):
         if self.args.disconnect:    
             self.client.disconnect()
     
+    def do_ping(self):
+        self.client.ping()
+
     def do_fw_version_read(self):
         
         (read_ok, response) = self.client.fe_param_read('firmware_version')

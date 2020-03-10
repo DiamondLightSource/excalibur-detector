@@ -37,6 +37,8 @@ extern "C" {
 		(FEM_STRIPES_PER_IMAGE/2)*FEM_CHIP_GAP_PIXELS_Y_SMALL)
 #define FEM_TOTAL_PIXELS_X FEM_PIXELS_PER_STRIPE_X
 
+#define FEM_FARM_MODE_LUT_SIZE 128
+
 /*
  * Edge pixel ratio (Note: don't put parentheses around this so that integer arithmetic works).
  */
@@ -157,6 +159,8 @@ void femClose(void* handle);
 #define FEM_OP_LOADDACCONFIG 5
 #define FEM_OP_FEINIT 6
 #define FEM_OP_REBOOT 7
+#define FEM_OP_RESET_UDP_COUNTER 8
+#define FEM_OP_PING 9
 
 /* Medipix III global registers */
 #define FEM_OP_MPXIII_COLOURMODE 1000
@@ -277,6 +281,10 @@ void femClose(void* handle);
 #define FEM_OP_DEST_DATA_ADDR 4062
 #define FEM_OP_DEST_DATA_MAC 4063
 #define FEM_OP_DEST_DATA_PORT 4064
+#define FEM_OP_DEST_DATA_PORT_OFFSET 4065
+#define FEM_OP_FARM_MODE_NUM_DESTS 4066
+#define FEM_OP_FARM_MODE_ENABLE 4067
+#define FEM_OP_FIRMWARE_VERSION 4068
 
 /* Ids 5000..5999 are signals */
 #define FEM_OP_ACQUISITIONCOMPLETE 5000

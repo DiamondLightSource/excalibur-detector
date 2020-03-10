@@ -1192,6 +1192,10 @@ int femCmd(void* handle, int chipId, int id)
         (femHandle->client)->command(id);
         break;
 
+      case FEM_OP_PING:
+        (femHandle->client)->ping();
+        break;
+
       default:
         (femHandle->error).set() << "Illegal command id (" << id << ") specified";
         rc = FEM_RTN_UNKNOWNOPID;
