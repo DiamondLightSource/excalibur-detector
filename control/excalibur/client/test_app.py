@@ -46,7 +46,7 @@ class ExcaliburTestAppDefaults(object):
         self.equalization_mode = ExcaliburDefinitions.FEM_EQUALIZATION_MODE_OFF
         self.gain_mode = ExcaliburDefinitions.FEM_GAIN_MODE_SLGM
         self.counter_select = 0
-        self.counter_depth = 12
+        self.counter_depth = '12'
         self.operation_mode = ExcaliburDefinitions.FEM_OPERATION_MODE_NORMAL
         
         self.sense_dac = 0
@@ -240,10 +240,10 @@ class ExcaliburTestApp(object):
             choices=[0, 1],
             default=self.defaults.counter_select,
             help='Set MPX counter to read: 0 or 1')
-        acq_group.add_argument('--depth', type=int, dest='counter_depth',
-            choices=[1, 6, 12, 24],
+        acq_group.add_argument('--depth', type=str, dest='counter_depth',
+            choices=ExcaliburDefinitions.FEM_COUNTER_DEPTH_NAMES,
             default=self.defaults.counter_depth,
-            help='Set MPX counter bit depth: 1, 6, 12, or 24')
+            help='Set MPX counter bit depth: 1, 6, 12, 24 or dual12')
         acq_group.add_argument('--tpcount', type=int, dest='tp_count',
             default=self.defaults.tp_count, metavar='COUNT',
             help='Set MPX3 test pulse count')
@@ -746,7 +746,7 @@ class ExcaliburTestApp(object):
         logging.info('  Setting ASIC counter select to {} '.format(self.args.counter_select))
         scan_params.append(ExcaliburParameter('mpx3_counterselect', [[self.args.counter_select]]))
         
-        counter_depth=12
+        counter_depth='12'
         logging.info('  Setting ASIC counter depth to {} bits'.format(counter_depth))
         counter_depth_val = ExcaliburDefinitions.counter_depth(counter_depth)
         scan_params.append(ExcaliburParameter('mpx3_counterdepth', [[counter_depth_val]]))
