@@ -104,7 +104,11 @@ typedef enum
 
 typedef enum
 {
-  lfsr12Bypass = 0, lfsr12Enable = 1, lfsr6Bypass = 2, lfsr6Enable = 3
+  lfsrDecodeModeUnknown = -1,
+  lfsr12Bypass = 0,
+  lfsr12Enable = 1,
+  lfsr6Bypass = 2,
+  lfsr6Enable = 3
 } asicLfsrDecodeMode;
 
 #endif /* EXCALIBURFEMRDMAADDRESSES_H_ */

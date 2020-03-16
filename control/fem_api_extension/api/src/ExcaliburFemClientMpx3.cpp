@@ -939,6 +939,10 @@ unsigned int ExcaliburFemClient::mpx3CounterBitDepth(mpx3CounterDepth aCounterDe
       counterBitDepth = 12; // 24bit counter = 2x12 readout
       break;
 
+    case counterDepthDual12:
+      counterBitDepth = 12; // Dual 12bit counter = 2x12 readout
+      break;
+
     default:
       break;
   }
