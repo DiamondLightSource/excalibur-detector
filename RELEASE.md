@@ -2,6 +2,11 @@
 
 Module excalibur-detector
 
+## [0-10-4] - 2020-03-18
+### Changed
+- Update to odin-data 1-4-0dls2
+- Update frameSimulator for integration testing
+
 ## [0-10-3] - 2020-02-12
 ### Changed
 - Fixed acquisition bug that could drop the acquire parameter too early
