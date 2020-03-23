@@ -10,22 +10,23 @@
 
 namespace Excalibur {
 
-    static const size_t num_bit_depths = 4;
+    static const size_t num_bit_depths = 5;
     typedef enum {
       bitDepthUnknown = -1,
-      bitDepth1  = 0,
-      bitDepth6  = 1,
-      bitDepth12 = 2,
-      bitDepth24 = 3
+      bitDepth1       = 0,
+      bitDepth6       = 1,
+      bitDepth12      = 2,
+      bitDepth24      = 3,
+      bitDepthDual12  = 4,
     } AsicCounterBitDepth;
 
     static const size_t primary_packet_size    = 8000;
-    static const size_t num_primary_packets[num_bit_depths] = { 4, 32, 65, 65 };
+    static const size_t num_primary_packets[num_bit_depths] = { 4, 32, 65, 65, 65 };
     static const size_t max_primary_packets = 65;
-    static const size_t tail_packet_size[num_bit_depths] = { 768, 6152, 4296, 4296 };
+    static const size_t tail_packet_size[num_bit_depths] = { 768, 6152, 4296, 4296, 4296 };
     static const size_t num_tail_packets = 1;
 
-    static const size_t num_subframes[num_bit_depths] = {2, 2, 2, 4};
+    static const size_t num_subframes[num_bit_depths] = {2, 2, 2, 4, 4};
     static const size_t max_num_subframes = 4;
 
     static const size_t max_num_fems = 6;
