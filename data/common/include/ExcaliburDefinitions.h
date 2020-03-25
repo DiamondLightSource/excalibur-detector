@@ -90,6 +90,40 @@ namespace Excalibur {
           (num_primary_packets[bit_depth] + num_tail_packets);
       return num_fem_frame_packets;
     }
+
+    //! Parse the ASIC counter bit depth configuration string.
+    //!
+    //! This method parses a configuration string specifying the EXCALIBUR ASIC counter bit
+    //! depth currently in use, returning an enumerated constant for use in the decoder.
+    //!
+    //! \param[in] bit_depth_str - string of the bit depth
+    //! \return enumerated constant defining bit depth, or unknown if the string is not recognised
+    //!
+    inline const AsicCounterBitDepth parse_bit_depth(const std::string bit_depth_str)
+    {
+      //! Set the default bit depth to return to unknown
+      AsicCounterBitDepth bit_depth = bitDepthUnknown;
+
+      // Initialise a mapping of string to bit depth
+      static std::map<std::string, Excalibur::AsicCounterBitDepth>bit_depth_map;
+      if (bit_depth_map.empty())
+      {
+        bit_depth_map["1-bit"] = bitDepth1;
+        bit_depth_map["6-bit"] = bitDepth6;
+        bit_depth_map["12-bit"] = bitDepth12;
+        bit_depth_map["24-bit"] = bitDepth24;
+        bit_depth_map["dual12-bit"] = bitDepthDual12;
+      }
+
+      // Set the bit depth value if present in the map
+      if (bit_depth_map.count(bit_depth_str))
+      {
+        bit_depth = bit_depth_map[bit_depth_str];
+      }
+
+      return bit_depth;
+    }
+
 }
 
 #endif /* INCLUDE_EXACLIBURDEFINITIONS_H_ */
