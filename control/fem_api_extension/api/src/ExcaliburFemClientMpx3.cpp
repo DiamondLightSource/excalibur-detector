@@ -721,6 +721,13 @@ void ExcaliburFemClient::mpx3ColourModeSet(int aColourMode)
 void ExcaliburFemClient::mpx3CounterDepthSet(int aCounterDepth)
 {
 
+  mMpx3CounterDepth = (mpx3CounterDepth) aCounterDepth;
+
+  // If in dual-12 bit mode, ensure OMR field is still set for 12 bit mode
+  if (aCounterDepth == counterDepthDual12) {
+    aCounterDepth = counterDepth12;
+  }
+
   // Set value for all chips
   for (unsigned int iChipIdx = 0; iChipIdx < kNumAsicsPerFem; iChipIdx++)
   {

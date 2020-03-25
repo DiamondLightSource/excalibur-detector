@@ -23,6 +23,7 @@ ExcaliburFemClient::ExcaliburFemClient(void* aCtlHandle, const CtlCallbacks* aCa
     const CtlConfig* aConfig, unsigned int aTimeoutInMsecs) :
     FemClient(aConfig->femNumber, aConfig->femAddress, aConfig->femPort, aTimeoutInMsecs),
     mMpx3GlobalTestPulseEnable(false),
+    mMpx3CounterDepth(unknownCounterDepth),
     mCurrentMpx3CounterDepth(unknownCounterDepth),
     mMpx3TestPulseCount(4000),
     mDataReceiverEnable(true),
@@ -401,7 +402,7 @@ void ExcaliburFemClient::startAcquisition(void)
   unsigned int numRxFrames = mNumFrames; // Default data receiver to receive specified number of frames
 
   // Latch the current counter depth so it is tracked to the end of the acquisition
-  mCurrentMpx3CounterDepth = mMpx3OmrParams[0].counterDepth;
+  mCurrentMpx3CounterDepth = mMpx3CounterDepth;
 
   // Override dual counter, LFSR decoding and data reordering modes based on counter depth
   switch (mCurrentMpx3CounterDepth)
@@ -821,7 +822,7 @@ void ExcaliburFemClient::startAcquisition(void)
     // Set up the OMR for readout using the first active chip to retrieve
     // default values for OMR fields
     mpx3Omr theOmr = this->mpx3OMRBuild(firstChipActive, omrMode);
-    //FEMLOG(mFemId, logDEBUG) << "Using MPX OMR: 0x" << std::hex << theOmr.raw << std::dec;
+    FEMLOG(mFemId, logDEBUG) << "Using MPX OMR: 0x" << std::hex << theOmr.raw << std::dec;
     this->asicControlOmrSet(theOmr);
 
     // Enable test pulses in the execute command if necessary
@@ -1139,7 +1140,7 @@ unsigned int ExcaliburFemClient::asicReadoutDmaSize(void)
 {
 
   // Get counter bit depth of ASIC
-  unsigned int counterBitDepth = this->mpx3CounterBitDepth(mMpx3OmrParams[0].counterDepth);
+  unsigned int counterBitDepth = this->mpx3CounterBitDepth(mMpx3CounterDepth);
 
   // DMA size is (numRows * numCols * (numAsics/2) counterDepth /  8 bits per bytes
   unsigned int theLength = (kNumRowsPerAsic * kNumColsPerAsic * (kNumAsicsPerFem / 2)
@@ -1151,7 +1152,7 @@ unsigned int ExcaliburFemClient::asicReadoutDmaSize(void)
 unsigned int ExcaliburFemClient::asicReadoutLengthCycles(void)
 {
 
-  unsigned int counterBitDepth = this->mpx3CounterBitDepth(mMpx3OmrParams[0].counterDepth);
+  unsigned int counterBitDepth = this->mpx3CounterBitDepth(mMpx3CounterDepth);
   unsigned int readoutBitWidth = this->mpx3ReadoutBitWidth(mMpx3OmrParams[0].readoutWidth);
 
   unsigned int theLength = (kNumRowsPerAsic * kNumColsPerAsic * counterBitDepth) / readoutBitWidth;
@@ -1166,7 +1167,7 @@ unsigned int ExcaliburFemClient::frameDataLengthBytes(void)
   unsigned int frameDataLengthBytes = 0;
 
   // Get the counter bit depth
-  unsigned int counterBitDepth = this->mpx3CounterBitDepth(mMpx3OmrParams[0].counterDepth);
+  unsigned int counterBitDepth = this->mpx3CounterBitDepth(mMpx3CounterDepth);
 
   // Calculate raw length of ASIC data in bits
   unsigned int asicDataLengthBits = kNumRowsPerAsic * kNumColsPerAsic * kNumAsicsPerFem
@@ -1177,7 +1178,7 @@ unsigned int ExcaliburFemClient::frameDataLengthBytes(void)
   // to 8 bits (one byte).
   if (mAsicDataReorderMode == reorderedDataMode)
   {
-    switch (mMpx3OmrParams[0].counterDepth)
+    switch (mMpx3CounterDepth)
     {
       case counterDepth1:
         frameDataLengthBytes = asicDataLengthBits / 8; // 1-bit is always forced to raw data mode
