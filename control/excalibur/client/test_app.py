@@ -258,19 +258,22 @@ class ExcaliburTestApp(object):
         self.client = ExcaliburClient(address=self.args.ip_addr, port=self.args.port, log_level=log_level)
         
     def run(self):
-        
+
         if self.args.dump:
             logging.info('Dumping state of control server:')
             self.client.print_all(logging.INFO)
             return
-        
+
         self.powercard_fem_id = self.client.get_powercard_fem_idx() + 1
         if self.powercard_fem_id > 0:
             logging.debug("Server reports power card is on FEM {}".format(self.powercard_fem_id))
         else:
             logging.debug("Server reports no power card present in system")
 
-        self.client.connect()
+        if not self.args.disconnect:
+            connected = self.client.connect()
+            if not connected:
+                return
 
         if self.args.api_trace:
             logging.debug('Setting API trace mode to {}'.format(self.args.api_trace))
