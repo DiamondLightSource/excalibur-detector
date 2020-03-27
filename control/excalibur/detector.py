@@ -39,6 +39,7 @@ class ExcaliburDetectorFemConnection(object):
         self.chips_enabled = []
         
         self.state = self.STATE_DISCONNECTED
+        self.connected = False
         self.error_code = FEM_RTN_OK
         self.error_msg = ""
         
@@ -50,6 +51,7 @@ class ExcaliburDetectorFemConnection(object):
             'chip_enable_mask': (self._get('chip_enable_mask'), None),
             'chips_enabled': (self._get('chips_enabled'), None),
             'state': (self._get('state'), None),
+            'connected': (self._get('connected'), None),
             'error_code': (self._get('error_code'), None),
             'error_msg': (self._get("error_msg"), None),
         })
@@ -72,8 +74,7 @@ class ExcaliburDetector(object):
         :param fem_connections: list of (address, port) FEM connections to make
         """
 
-        self.connected = False
-        self.num_pending = 0   
+        self.num_pending = 0
         self.command_succeeded = True
         
         self.api_trace = False
@@ -130,7 +131,7 @@ class ExcaliburDetector(object):
 
         self.param_tree = ParameterTree({
             'status' : {
-                'connected': (self._get('connected'), None),
+                'connected': (self.connected, None),
                 'command_pending': (self.command_pending, None),
                 'command_succeeded': (self._get('command_succeeded'), None),
                 'num_pending': (self._get('num_pending'), None),
@@ -201,6 +202,13 @@ class ExcaliburDetector(object):
             self.fems[fem_idx].error_code = error_code
             self.fems[fem_idx].error_msg = error_msg
             
+    def connected(self):
+
+        with self.state_lock:
+            connected = all([fem.connected for fem in self.fems])
+
+        return connected
+
     def command_pending(self):
         
         with self.state_lock:    
@@ -230,7 +238,6 @@ class ExcaliburDetector(object):
             state = params['state']
         
         self.command_succeeded = True
-        self.connected = state
 
         """Establish connection to the detectors FEMs."""
         for idx in range(len(self.fems)):
@@ -243,60 +250,73 @@ class ExcaliburDetector(object):
 
     @run_on_executor(executor='_fem_thread_pool')
     def _connect_fem(self, idx):
-        
+
         connect_ok = True
-        
+
         logging.debug('Connecting FEM {} at {}:{}, data_addr {}'.format(
             self.fems[idx].fem_id, self.fems[idx].host_addr, self.fems[idx].port, self.fems[idx].data_addr
         ))
-        
+
         try:
             self.fems[idx].fem = ExcaliburFem(self.fems[idx].fem_id, self.fems[idx].host_addr, self.fems[idx].port, self.fems[idx].data_addr)
             self.fems[idx].state = ExcaliburDetectorFemConnection.STATE_CONNECTED
+            self.fems[idx].connected = True
             logging.debug('Connected FEM {}'.format(self.fems[idx].fem_id))
+
         except ExcaliburFemError as e:
             self.fems[idx].state = ExcaliburDetectorFemConnection.STATE_ERROR
+            self.fems[idx].connected = False
+            self.fems[idx].error_code = FEM_RTN_INTERNALERROR
+            self.fems[idx].error_msg = str(e)
             logging.error('Failed to connect to FEM {} at {}:{}: {}'.format(
                 self.fems[idx].fem_id, self.fems[idx].host_addr, self.fems[idx].port, str(e)
             ))
             connect_ok = False
 
-        # Set up chip enables according to asic enable mask
-        try:
-            (param_id, _, _, _, _) = self.fe_param_map['medipix_chip_disable']
-            for chip_idx in range(CHIPS_PER_FEM):
-                chip_disable = 0 if chip_idx+1 in self.fems[idx].chips_enabled else 1
-                rc = self.fems[idx].fem.set_int(chip_idx+1, param_id, chip_disable)
-                if rc != FEM_RTN_OK:
-                    self.fems[idx].error_msg = self.fems[idx].fem.get_error_msg()
-                    logging.error('FEM {}: chip {} enable set returned error {}: {}'.format(
-                        self.fems[idx].fem_id, rc, self.fems[idx].error_msg   
-                    ))
-        except Exception as e:
-            self.fems[idx].error_code = FEM_RTN_INTERNALERROR
-            self.fems[idx].error_msg = 'Unable to build chip enable list for FEM {}: {}'.format(idx, e)                                                                                    
-            
+        else:
+
+            # Set up chip enables according to asic enable mask
+            try:
+                (param_id, _, _, _, _) = self.fe_param_map['medipix_chip_disable']
+                for chip_idx in range(CHIPS_PER_FEM):
+                    chip_disable = 0 if chip_idx+1 in self.fems[idx].chips_enabled else 1
+                    rc = self.fems[idx].fem.set_int(chip_idx+1, param_id, 0, chip_disable)
+                    if rc != FEM_RTN_OK:
+                        self.fems[idx].error_msg = self.fems[idx].fem.get_error_msg()
+                        logging.error('FEM {}: chip {} enable set returned error {}: {}'.format(
+                            self.fems[idx].fem_id, rc, self.fems[idx].error_msg
+                        ))
+            except Exception as e:
+                self.fems[idx].error_code = FEM_RTN_INTERNALERROR
+                self.fems[idx].error_msg = 'Unable to build chip enable list for FEM {}: {}'.format(idx, e)
+                logging.error(self.fems[idx].error_msg)
+                connect_ok = False
+
         self._decrement_pending(connect_ok)
-        
+
     @run_on_executor(executor='_fem_thread_pool')
     def _disconnect_fem(self, idx):
-        
+
         disconnect_ok = True
-        
+
         logging.debug("Disconnecting from FEM {}".format(
             self.fems[idx].fem_id
         ))
-        
+
         try:
-            self.fems[idx].fem.close()
+            if self.fems[idx].fem is not None:
+                self.fems[idx].fem.close()
         except ExcaliburFemError as e:
             logging.error("Failed to disconnect from FEM {}: {}".format(
-              self.fems[idx].fem_id, str(e)  
+              self.fems[idx].fem_id, str(e)
             ))
             disconnect_ok = False
-            
+
+        self.fems[idx].connected = False
+        self.fems[idx].state = ExcaliburDetectorFemConnection.STATE_DISCONNECTED
+
         self._decrement_pending(disconnect_ok)
- 
+
     def _cmd(self, cmd_name):
         
         return partial(self.do_command, cmd_name)
