@@ -244,14 +244,17 @@ class ExcaliburClient(object):
         return powercard_fem_idx
 
     def connect(self):
-        
+
         connected = self.get_param('status/connected')
         if not connected:
             self.logger.info('Detector not connected, sending connect command')
             self.exec_command('connect', {'state': True})
+            connected = self.get_param('status/connected')
         else:
             self.logger.info('Detector already connected')
-            
+
+        return connected
+
     def disconnect(self):
         
         self.exec_command('connect', {'state': False})
