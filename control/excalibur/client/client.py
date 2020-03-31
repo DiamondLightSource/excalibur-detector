@@ -5,6 +5,15 @@ import time
 import logging
 from collections import OrderedDict
 
+try:
+    from pygments import highlight
+    from pygments.lexers import JsonLexer
+    from pygments.formatters import TerminalFormatter
+    has_pygments = True
+except ImportError:
+    has_pygments = False
+
+
 class ExcaliburDefinitions(object):
 
     ERROR_OK = 0
@@ -163,7 +172,11 @@ class ExcaliburClient(object):
         else:
             json_data = response
             
-        self.logger.log(log_level, self._pp.pformat(json_data))
+        if has_pygments:
+            json_str = json.dumps(json_data, indent=2, sort_keys=False)
+            self.logger.log(log_level, highlight(json_str, JsonLexer(), TerminalFormatter()))
+        else:
+            self.logger.log(log_level, self._pp.pformat(json_data))
     
     def print_all(self, log_level=logging.DEBUG):
         
