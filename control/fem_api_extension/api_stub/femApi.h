@@ -92,6 +92,7 @@ typedef struct CtlConfig
     const char* femAddress;
     int femPort;
     const char* dataAddress;
+    unsigned int timeout_ms;
 } CtlConfig;
 
 /* Typedef for a logging function pointer

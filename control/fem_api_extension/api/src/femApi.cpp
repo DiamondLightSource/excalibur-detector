@@ -30,8 +30,6 @@ static int translateFemErrorCode(FemErrorCode error);
 static void* lCtlHandle = NULL;
 static const CtlCallbacks* lCallbacks = NULL;
 
-const unsigned int kClientTimeoutMsecs = 10000;
-
 typedef struct
 {
   ExcaliburFemClient* client;
@@ -65,7 +63,7 @@ int femInitialise(void* ctlHandle, const CtlCallbacks* callbacks, const CtlConfi
 
   try
   {
-    femHandle->client = new ExcaliburFemClient(ctlHandle, callbacks, config, kClientTimeoutMsecs);
+    femHandle->client = new ExcaliburFemClient(ctlHandle, callbacks, config, config->timeout_ms);
 
   }
   catch (FemClientException& e)
