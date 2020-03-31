@@ -18,7 +18,7 @@ class ExcaliburFem(object):
     api_stem = 'excalibur.fem_api'
     _fem_api = None
 
-    def __init__(self, fem_id, fem_address, fem_port, data_address):
+    def __init__(self, fem_id, fem_address, fem_port, data_address, timeout_ms=10000):
 
         self.fem_handle = None
 
@@ -36,9 +36,9 @@ class ExcaliburFem(object):
 
         try:
             self.fem_handle = self._fem_api.initialise(
-                fem_id, fem_address, fem_port, data_address
+                fem_id, fem_address, fem_port, data_address, timeout_ms,
             )
-            
+
         except self._fem_api.error as e:
             raise ExcaliburFemError(str(e))
 

@@ -28,6 +28,8 @@ class ExcaliburDetectorFemConnection(object):
     DEFAULT_DATA_ADDR = '10.0.2.1'
     DEFAULT_CHIP_ENABLE_MASK = 0xFF
 
+    DEFAULT_TIMEOUT_MS = 1000
+
     def __init__(self, fem_id, host_addr, port, data_addr=None, fem=None, state=STATE_DISCONNECTED):
 
         self.fem_id = fem_id
@@ -42,12 +44,14 @@ class ExcaliburDetectorFemConnection(object):
         self.connected = False
         self.error_code = FEM_RTN_OK
         self.error_msg = ""
+        self.timeout_ms = self.DEFAULT_TIMEOUT_MS
 
         self.param_tree = ParameterTree({
             'id': (self._get('fem_id'), None),
             'address': (self._get('host_addr'), None),
             'port': (self._get('port'), None),
             'data_address': (self._get('data_addr'), None),
+            'timeout_ms': (self._get('timeout_ms'), None),
             'chip_enable_mask': (self._get('chip_enable_mask'), None),
             'chips_enabled': (self._get('chips_enabled'), None),
             'state': (self._get('state'), None),
@@ -166,6 +170,11 @@ class ExcaliburDetector(object):
 
         self.chip_enable_mask = chip_enable_mask
 
+    def set_fem_timeout(self, fem_timeout_ms):
+
+        for fem_idx in range(len(self.fems)):
+            self.fems[fem_idx].timeout_ms = fem_timeout_ms
+
     def get(self, path):
 
         try:
@@ -253,14 +262,20 @@ class ExcaliburDetector(object):
 
         connect_ok = True
 
-        logging.debug('Connecting FEM {} at {}:{}, data_addr {}'.format(
-            self.fems[idx].fem_id, self.fems[idx].host_addr, self.fems[idx].port, self.fems[idx].data_addr
+        logging.debug('Connecting FEM {} at {}:{}, data_addr {} timeout {} ms'.format(
+            self.fems[idx].fem_id, self.fems[idx].host_addr, self.fems[idx].port,
+            self.fems[idx].data_addr, self.fems[idx].timeout_ms
         ))
 
         try:
-            self.fems[idx].fem = ExcaliburFem(self.fems[idx].fem_id, self.fems[idx].host_addr, self.fems[idx].port, self.fems[idx].data_addr)
+            self.fems[idx].fem = ExcaliburFem(
+                self.fems[idx].fem_id, self.fems[idx].host_addr,
+                self.fems[idx].port, self.fems[idx].data_addr,
+                self.fems[idx].timeout_ms)
+
             self.fems[idx].state = ExcaliburDetectorFemConnection.STATE_CONNECTED
             self.fems[idx].connected = True
+            self._set_fem_error_state(idx, FEM_RTN_OK, '')
             logging.debug('Connected FEM {}'.format(self.fems[idx].fem_id))
 
         except ExcaliburFemError as e:
@@ -297,6 +312,11 @@ class ExcaliburDetector(object):
     @run_on_executor(executor='_fem_thread_pool')
     def _disconnect_fem(self, idx):
 
+        disconnect_ok = self._do_disconnect(idx)
+        self._decrement_pending(disconnect_ok)
+
+    def _do_disconnect(self, idx):
+
         disconnect_ok = True
 
         logging.debug("Disconnecting from FEM {}".format(
@@ -315,7 +335,7 @@ class ExcaliburDetector(object):
         self.fems[idx].connected = False
         self.fems[idx].state = ExcaliburDetectorFemConnection.STATE_DISCONNECTED
 
-        self._decrement_pending(disconnect_ok)
+        return disconnect_ok
 
     def _cmd(self, cmd_name):
 
@@ -362,23 +382,33 @@ class ExcaliburDetector(object):
         ))
 
         self._set_fem_error_state(fem_idx, FEM_RTN_OK, '')
-        cmd_ok =True
+        cmd_ok = True
 
-        for chip_id in chip_ids:
-            try:
-                rc = self.fems[fem_idx].fem.cmd(chip_id, cmd_id)
-                if rc != FEM_RTN_OK:
-                    self._set_fem_error_state(fem_idx, rc, self.fems[fem_idx].fem.get_error_msg())
-                    logging.error("FEM {}: {} command returned error {}: {}".format(
-                        self.fems[fem_idx].fem_id, cmd_text, rc, self.fems[fem_idx].error_msg
+        if not self.fems[fem_idx].connected:
+            self._set_fem_error_state(fem_idx, FEM_RTN_CONNECTION_CLOSED,
+                "{} command failed: FEM is not connected".format(cmd_text)
+            )
+            logging.error("FEM %s: %s", self.fems[fem_idx].fem_id, self.fems[fem_idx].error_msg)
+            cmd_ok = False
+        else:
+            for chip_id in chip_ids:
+                try:
+                    rc = self.fems[fem_idx].fem.cmd(chip_id, cmd_id)
+                    if rc != FEM_RTN_OK:
+                        self._set_fem_error_state(fem_idx, rc, self.fems[fem_idx].fem.get_error_msg())
+                        logging.error("FEM {}: {} command returned error {}: {}".format(
+                            self.fems[fem_idx].fem_id, cmd_text, rc, self.fems[fem_idx].error_msg
+                        ))
+                        if rc in [FEM_RTN_CONNECTION_CLOSED, FEM_RTN_TIMEOUT]:
+                            self._do_disconnect(fem_idx)
+                        cmd_ok = False
+
+                except ExcaliburFemError as e:
+                    self._set_fem_error_state(fem_idx, param_err, str(e))
+                    logging.error("FEM {}: {} command raised exception: {}".format(
+                        self.fems[fem_idx].fem_id, cmd_text, str(e)
                     ))
                     cmd_ok = False
-            except ExcaliburFemError as e:
-                self._set_fem_error_state(fem_idx, param_err, str(e))
-                logging.error("FEM {}: {} command raised exception: {}".format(
-                    self.fems[fem_idx].fem_id, cmd_text, str(e)
-                ))
-                cmd_ok = False
 
         self._decrement_pending(cmd_ok)
 
@@ -458,6 +488,9 @@ class ExcaliburDetector(object):
 
                             value = [-1]
                             read_ok = False
+
+                            if rc in [FEM_RTN_CONNECTION_CLOSED, FEM_RTN_TIMEOUT]:
+                                self._do_disconnect(fem_idx)
 
                         values.extend(value)
                         if not read_ok:
@@ -623,6 +656,10 @@ class ExcaliburDetector(object):
                             if rc != FEM_RTN_OK:
                                 self._set_fem_error_state(fem_idx, rc,self.fems[fem_idx].fem.get_error_msg())
                                 write_ok = False
+
+                                if rc in [FEM_RTN_CONNECTION_CLOSED, FEM_RTN_TIMEOUT]:
+                                    self._do_disconnect(fem_idx)
+
                                 break
 
                         except ExcaliburFemError as e:
