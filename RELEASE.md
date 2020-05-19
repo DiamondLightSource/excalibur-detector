@@ -2,6 +2,10 @@
 
 Module excalibur-detector
 
+## [0-10-5] - 2020-05-19
+### Changed
+- Update to odin-data 1-4-0dls3
+
 ## [0-10-4] - 2020-03-18
 ### Changed
 - Update to odin-data 1-4-0dls2
