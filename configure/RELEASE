@@ -1,7 +1,7 @@
 TOOLS_SUPPORT=/dls_sw/prod/tools/RHEL7-x86_64
 LOG4CXX = $(TOOLS_SUPPORT)/log4cxx/0-10-0dls2
 CMAKE = $(TOOLS_SUPPORT)/cmake/3-9-6
-ODIN_DATA = $(TOOLS_SUPPORT)/odin-data/1-4-0dls2
+ODIN_DATA = $(TOOLS_SUPPORT)/odin-data/1-4-0dls3
 
 PYTHON = $(TOOLS_SUPPORT)/Python/2-7-13
 ODIN_CONTROL = $(TOOLS_SUPPORT)/../../common/python/RHEL7-x86_64/odin-control/0-9-0dls1
