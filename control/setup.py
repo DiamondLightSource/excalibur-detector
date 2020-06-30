@@ -247,4 +247,5 @@ setup(
             'excalibur_test_app  = excalibur.client.test_app:main',
         ]
     },
+    zip_safe=False,
 )
