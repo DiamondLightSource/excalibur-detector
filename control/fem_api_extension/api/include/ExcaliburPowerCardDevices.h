@@ -47,8 +47,9 @@ typedef struct powerCardAD7998Map_t
 
 const float kAD7998RawToVolts = 5.0 / 4096;
 const float kAD7998RawToHumidity = 0.0394;
-const float kAD7998HumidtyOffset = 30.9;
-const float kAD7998RawToTemp = 0.01219;
+const float kAD7998HumidtyOffset = 25.806;
+const float kAD7998RawToTemp = 0.145;
+const float kAD7998TempOffset = 273.15;
 const float kAD7998RawToFlow = 1.0;
 const float kAD7998RawToBiasVolts = 0.06103;
 #endif /* EXCALIBURPOWERCARDDEVICES_H_ */

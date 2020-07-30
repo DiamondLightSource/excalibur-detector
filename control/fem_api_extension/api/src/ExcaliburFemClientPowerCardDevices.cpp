@@ -88,8 +88,8 @@ float ExcaliburFemClient::powerCardMonitorRead(excaliburPowerCardMonitor aMonito
     monitorMap[p5vSupCurrentMonitor] = powerCardAD7998Map(1, 3, kAD7998RawToVolts * 2, 0.0);
     monitorMap[humidityMonitor] = powerCardAD7998Map(1, 4, kAD7998RawToHumidity,
                                                      kAD7998HumidtyOffset);
-    monitorMap[airTempMonitor] = powerCardAD7998Map(1, 5, kAD7998RawToTemp, 0.0);
-    monitorMap[coolantTempMonitor] = powerCardAD7998Map(1, 6, kAD7998RawToTemp, 0.0);
+    monitorMap[airTempMonitor] = powerCardAD7998Map(1, 5, kAD7998RawToTemp, kAD7998TempOffset);
+    monitorMap[coolantTempMonitor] = powerCardAD7998Map(1, 6, kAD7998RawToTemp, kAD7998TempOffset);
     monitorMap[coolantFlowMonitor] = powerCardAD7998Map(1, 7, kAD7998RawToFlow, 0.0);
     monitorMap[p3v3CurrentMonitor] = powerCardAD7998Map(2, 0, kAD7998RawToVolts * 2, 0.0);
     monitorMap[p1v8ACurrentMonitor] = powerCardAD7998Map(2, 1, kAD7998RawToVolts * 10, 0.0);
