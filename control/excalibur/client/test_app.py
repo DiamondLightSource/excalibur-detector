@@ -614,21 +614,50 @@ class ExcaliburTestApp(object):
                     source_data_port[-1], dest_data_port_offset[-1]
                 ))
                 
-            dest_data_addr = []
-            dest_data_mac = []
-            dest_data_port = []
-            
-            for idx, node in enumerate(udp_config['nodes']):
+            if 'all_fems' in udp_config['nodes'].keys():
                 
-                dest_data_addr.append(node['ipaddr'])
-                dest_data_mac.append(node['mac'])
-                dest_data_port.append(int(node['port']))
-                    
-                logging.debug('    Node {:d} : ip {:16s} mac: {:s} port: {:5d}'.format(
-                    idx, dest_data_addr[-1], dest_data_mac[-1],
-                    dest_data_port[-1]
-                ))
-    
+                dest_data_addr= [[[]]]
+                dest_data_mac = [[[]]]
+                dest_data_port = [[[]]]
+                for dest_idx, dest in enumerate(udp_config['nodes']['all_fems']):
+                    dest_data_addr[0][0].append(dest['ipaddr'])
+                    dest_data_mac[0][0].append(dest['mac'])
+                    dest_data_port[0][0].append(int(dest['port']))
+
+                    logging.debug(
+                        '    Node {node:d} | '
+                        'ip: {ipaddr:16s} mac: {mac:s} port: {port:5d}'.format(
+                            node=dest_idx, **dest)
+                    )
+            else:
+                fems = [fem['name'] for fem in udp_config['fems']]
+
+                if all(fem in udp_config['nodes'].keys() for fem in fems):
+                    # Each FEM needs a different configuration
+                    dest_data_addr = [[[]] for _ in self.fem_ids]
+                    dest_data_mac = [[[]] for _ in self.fem_ids]
+                    dest_data_port = [[[]] for _ in self.fem_ids]
+                    for fem_idx, fem_key in enumerate(fems):
+                        for dest_idx, dest in enumerate(udp_config['nodes'][fem_key]):
+                            dest_data_addr[fem_idx][0].append(dest['ipaddr'])
+                            dest_data_mac[fem_idx][0].append(dest['mac'])
+                            dest_data_port[fem_idx][0].append(int(dest['port']))
+
+                            logging.debug(
+                                '    FEM {fem:d} Node {node:d} | '
+                                'ip: {ipaddr:16s} mac: {mac:s} port: {port:5d}'.format(
+                                    fem=fem_idx, node=dest_idx, **dest)
+                            )
+
+                else:
+                    message = "Failed to parse UDP json config." \
+                              "Node config must contain a config for each entry in fems or " \
+                              "one config with the key 'all_fems'.\n" \
+                              "Fems: {}\n" \
+                              "Node Config Keys: {}".format(fems, udp_config['nodes'].keys())
+                    logging.error(message)
+                    return
+
             farm_mode_enable = udp_config['farm_mode']['enable']
             farm_mode_num_dests = udp_config['farm_mode']['num_dests']
         
@@ -641,9 +670,9 @@ class ExcaliburTestApp(object):
             source_data_port = self.args.source_data_port
             dest_data_port_offset = self.args.dest_data_port_offset
 
-            dest_data_addr = self.args.dest_data_addr
-            dest_data_mac = self.args.dest_data_mac
-            dest_data_port = self.args.dest_data_port
+            dest_data_addr = [[[addr for addr in self.args.dest_data_addr]]]
+            dest_data_mac = [[[mac for mac in self.args.dest_data_mac]]]
+            dest_data_port = [[[port for port in self.args.dest_data_port]]]
             
             farm_mode_enable = self.args.farm_mode_enable
             farm_mode_num_dests  = self.args.farm_mode_num_dests
@@ -665,16 +694,15 @@ class ExcaliburTestApp(object):
             [[offset] for offset in dest_data_port_offset[:self.num_fems]]
         ))
           
-        # Append the UDP destination parameters, noting [[[ ]]] indexing as they are common for
-        # all FEMs and chips - there must be a better way to do this 
+        # Append the UDP destination parameters
         udp_params.append(ExcaliburParameter(
-            'dest_data_addr', [[[addr for addr in dest_data_addr]]]
+            'dest_data_addr', dest_data_addr
         ))
         udp_params.append(ExcaliburParameter(
-            'dest_data_mac', [[[mac for mac in dest_data_mac]]]
+            'dest_data_mac', dest_data_mac
         ))
         udp_params.append(ExcaliburParameter(
-            'dest_data_port', [[[port for port in dest_data_port]]]
+            'dest_data_port', dest_data_port
         ))
           
         # Append the farm mode configuration parameters
