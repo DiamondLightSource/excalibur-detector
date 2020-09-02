@@ -37,8 +37,7 @@ class ExcaliburDetectorFemConnection(object):
         self.port = port
         self.data_addr = data_addr if data_addr is not None else self.DEFAULT_DATA_ADDR
         self.fem = fem
-        self.chip_enable_mask = self.DEFAULT_CHIP_ENABLE_MASK
-        self.chips_enabled = []
+        self.set_chip_enable(self.DEFAULT_CHIP_ENABLE_MASK)
 
         self.state = self.STATE_DISCONNECTED
         self.connected = False
@@ -62,6 +61,15 @@ class ExcaliburDetectorFemConnection(object):
 
     def _get(self, attr):
         return lambda : getattr(self, attr)
+
+    def set_chip_enable(self, mask):
+
+        self.chip_enable_mask = mask
+        self.chips_enabled = []
+        for chip_idx in range(CHIPS_PER_FEM):
+            if mask & (1<<(7 - chip_idx)):
+                self.chips_enabled.append(chip_idx + 1)
+
 
 class ExcaliburDetector(object):
     """EXCALIBUR detector class.
@@ -163,10 +171,7 @@ class ExcaliburDetector(object):
             ))
 
         for (fem_idx, mask) in enumerate(chip_enable_mask):
-            self.fems[fem_idx].chip_enable_mask = mask
-            for chip_idx in range(CHIPS_PER_FEM):
-                if mask & (1<<(7 - chip_idx)):
-                    self.fems[fem_idx].chips_enabled.append(chip_idx + 1)
+            self.fems[fem_idx].set_chip_enable(mask)
 
         self.chip_enable_mask = chip_enable_mask
 
