@@ -778,6 +778,14 @@ void ExcaliburFemClient::startAcquisition(void)
     FEMLOG(mFemId, logDEBUG) << "Chip mask: 0x" << std::hex << chipMask << std::dec
             << " First chip active: " << firstChipActive;
 
+    // Raise an error if no chips are enabled
+    if (chipMask == 0)
+    {
+      throw FemClientException((FemClientErrorCode) excaliburFemClientIllegalChipId,
+        "Cannot start acquisition, no MPX chips are enabled"
+      );
+    }
+
     // Set up the ASIC mux based on calculated chip mask
     this->asicControlMuxSet(chipMask);
 
