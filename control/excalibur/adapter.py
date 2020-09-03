@@ -101,6 +101,9 @@ class ExcaliburAdapter(ApiAdapter):
                         logging.debug("Setting FEM timeout to %d ms", fem_timeout_ms)
                         self.detector.set_fem_timeout(fem_timeout_ms)
 
+                if not use_raw:
+                    self.detector.init()
+
             except ExcaliburDetectorError as e:
                 logging.error('ExcaliburAdapter failed to initialise detector: %s', e)
         else:
