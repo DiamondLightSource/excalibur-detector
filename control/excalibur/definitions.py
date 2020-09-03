@@ -70,7 +70,7 @@ class ExcaliburDefinitions(object):
     FEM_LFSR_BYPASS_MODE_ENABLED = 1
     FEM_LFSR_BYPASS_MODE_NAMES = ('disabled', 'enabled')
 
-    FEM_COUNTER_DEPTH_MAP = {'1': 0, '6': 1, '12': 2, '24': 3}
+    FEM_COUNTER_DEPTH_MAP = {'1': 0, '6': 1, '12': 2, '24': 3, 'dual12': 4}
 
     FEM_DISCSPMCSM_OFF = 0
     FEM_DISCSPMCSM_ON = 1
@@ -188,6 +188,35 @@ class ExcaliburDefinitions(object):
                 # Threshold 1
                 [
                     [FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF],
+                    [FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF]
+                ]
+            ]
+        ],
+        # dual 12 bit
+        [
+            # SPM
+            [
+                # Threshold 0
+                [
+                    [FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_ON, FEM_DISCSPMCSM_OFF],
+                    [FEM_DISCSPMCSM_ON,  FEM_DISCSPMCSM_ON, FEM_DISCSPMCSM_OFF]
+                ],
+                # Threshold 1
+                [
+                    [FEM_DISCSPMCSM_ON,  FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF],
+                    [FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF]
+                ]
+            ],
+            # CSM
+            [
+                # Threshold 0
+                [
+                    [FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF],
+                    [FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF]
+                ],
+                # Threshold 1
+                [
+                    [FEM_DISCSPMCSM_ON,  FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF],
                     [FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF, FEM_DISCSPMCSM_OFF]
                 ]
             ]
