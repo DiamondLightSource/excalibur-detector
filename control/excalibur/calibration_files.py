@@ -24,7 +24,9 @@ class DetectorCalibration(object):
         self._file_root = None
         self._csm_spm_mode = None
         self._gain_mode = None
-        self._energy_threshold = None
+        self._energy_threshold_0 = None
+        self._energy_threshold_1 = None
+        self._threshold_1_file_valid = False
         self._dacs = {}
         self._masks = {}
         self._discL = {}
@@ -41,8 +43,14 @@ class DetectorCalibration(object):
     def set_gain_mode(self, mode):
         self._gain_mode = mode
 
-    def set_energy_threshold(self, threshold):
-        self._energy_threshold = threshold
+    def set_energy_threshold_0(self, threshold):
+        self._energy_threshold_0 = threshold
+
+    def set_energy_threshold_1(self, threshold):
+        self._energy_threshold_1 = threshold
+
+    def get_threshold1_file_valid(self):
+        return self._threshold_1_file_valid
 
     def get_dac(self, fem):
         # Check if we need to update the dac from the energy threshold
@@ -64,7 +72,7 @@ class DetectorCalibration(object):
                     #logging.debug("Updating DAC value [fem %d chip %d]", fem, chip)
                     #logging.debug("Gain [%s]", thresh.gains[chip - 1])
                     #logging.debug("Offset [%s]", thresh.offsets[chip - 1])
-                    val = int(round(gains[chip - 1] * self._energy_threshold + offsets[chip - 1]))
+                    val = int(round(gains[chip - 1] * self._energy_threshold_0 + offsets[chip - 1]))
                     #logging.debug("Updating DAC value [fem %d chip %d] to %s", fem, chip, val)
                     dac.update_dac_value(fem, chip, 'Threshold0', val)
         if fem in self._thresh1:
@@ -79,7 +87,7 @@ class DetectorCalibration(object):
                     #logging.debug("Updating DAC value [fem %d chip %d]", fem, chip)
                     #logging.debug("Gain [%s]", thresh.gains[chip - 1])
                     #logging.debug("Offset [%s]", thresh.offsets[chip - 1])
-                    val = int(round(gains[chip - 1] * self._energy_threshold + offsets[chip - 1]))
+                    val = int(round(gains[chip - 1] * self._energy_threshold_1 + offsets[chip - 1]))
                     #logging.debug("Updating DAC value [fem %d chip %d] to %s", fem, chip, val)
                     dac.update_dac_value(fem, chip, 'Threshold1', val)
         return dac
@@ -125,6 +133,7 @@ class DetectorCalibration(object):
         return filename
 
     def load_calibration_files(self, fems):
+        self._threshold_1_file_valid = True
         if isinstance(fems, list):
             for fem in fems:
                 self._dacs[fem] = self.load_dac_calibration_file(fem)
@@ -180,67 +189,12 @@ class DetectorCalibration(object):
         logging.info("Threshold file loaded gains   => %s", config.gains)
         logging.info("                      offsets => %s", config.offsets)
 
+        # Check if threshold 1 file is valid, required for dual 12 bit mode
+        if threshold == 1:
+            if config.valid == False:
+                self._threshold_1_file_valid = False
+
         return config
-
-    # def update_dacs_from_thresholds(self, fems):
-    #     if self._energy_threshold is None:
-    #         raise CalibrationError("No energy threshold value has been set")
-    #
-    #     for fem in fems:
-    #         # If threshold0 exists then replace the corresponding dac values
-    #         if fem in self._thresh0:
-    #             thresh = self._thresh0[fem]
-    #             if thresh.gains is not None and thresh.offsets is not None:
-    #                 for chip in self.CHIPS:
-    #                     val = int(round(thresh.gains[chip-1] * self._energy_threshold + thresh.offsets[chip-1]))
-    #                     self.get_dac(fem).
-    #                 Threshold0
-
-# class DacCalibrationFile(object):
-#     """
-#     Loads a DAC calibration INI file.
-#     """
-#     def __init__(self):
-#         self._ini_filename = None
-#         self._conf = None
-#
-#     def load_ini(self, ini_filename):
-#         """
-#         Loads and parses the data from INI file. The data is stored internally in the object and can be retrieved
-#         through the property methods
-#         """
-#         self._ini_filename = ini_filename
-#         self._conf = SafeConfigParser(dict_type=OrderedDict)
-#         self._conf.optionxform = str
-#         if self._ini_filename:
-#             self._conf.read(self._ini_filename)
-#             logging.info("Read DAC calibration INI file: %s", self._ini_filename)
-#
-#     @property
-#     def sections(self):
-#         return self._conf.sections()
-#
-#     def get(self, chip, item):
-#         section = "CHIP" + str(chip)
-#         for data in self._conf.items(section):
-#             if item == data[0]:
-#                 return int(data[1])
-#         return None
-#
-#     def get_description(self, section):
-#         desc = ""
-#         for item in self._conf.items(section):
-#             if "Setpoint_description" in item[0]:
-#                 desc = item[1].replace('"', '')
-#                 break
-#         return desc
-#
-#     def get_setpoints(self, section):
-#         sps = {}
-#         for item in self._conf.items(section):
-#             if "Setpoint_description" not in item and "Setpoint_name" not in item:
-#                 sps[item[0]] = item[1]
-#         return sps
 
 
 def main():

@@ -182,7 +182,8 @@ class HLExcaliburDetector(ExcaliburDetector):
     STR_CONFIG_COUNTER_SELECT = 'counter_select'
     STR_CONFIG_COUNTER_DEPTH = 'counter_depth'
     STR_CONFIG_CAL_FILE_ROOT = 'cal_file_root'
-    STR_CONFIG_ENERGY_THRESHOLD = 'energy_threshold'
+    STR_CONFIG_ENERGY_THRESHOLD_0 = 'energy_threshold_0'
+    STR_CONFIG_ENERGY_THRESHOLD_1 = 'energy_threshold_1'
     STR_CONFIG_UDP_FILE = 'udp_file'
     STR_CONFIG_HV_BIAS = 'hv_bias'
     STR_CONFIG_LV_ENABLE = 'lv_enable'
@@ -216,6 +217,9 @@ class HLExcaliburDetector(ExcaliburDetector):
 
         # Initialise state
         self._state = HLExcaliburDetector.STATE_IDLE
+
+        # Initialise dual 12 bit status
+        self._dual_12bit_valid = False
 
         # Initialise error message
         self._error = ''
@@ -261,7 +265,8 @@ class HLExcaliburDetector(ExcaliburDetector):
         self._counter_select = 0
         self._counter_depth = '12'
         self._cal_file_root = ''
-        self._energy_threshold = 0.0
+        self._energy_threshold_0 = 0.0
+        self._energy_threshold_1 = 0.0
         self._udp_file = ''
         self._hv_bias = 0.0
         self._lv_enable = 0
@@ -415,7 +420,10 @@ class HLExcaliburDetector(ExcaliburDetector):
                 self.STR_CONFIG_CAL_FILE_ROOT: (self.get_cal_file_root, self.set_cal_file_root, {
                     # Meta data here
                 }),
-                self.STR_CONFIG_ENERGY_THRESHOLD: (self.get_energy_threshold, self.set_energy_threshold, {
+                self.STR_CONFIG_ENERGY_THRESHOLD_0: (self.get_energy_threshold_0, self.set_energy_threshold_0, {
+                    # Meta data here
+                }),
+                self.STR_CONFIG_ENERGY_THRESHOLD_1: (self.get_energy_threshold_1, self.set_energy_threshold_1, {
                     # Meta data here
                 }),
                 self.STR_CONFIG_UDP_FILE: (self.get_udp_file, self.set_udp_file, {
@@ -625,11 +633,19 @@ class HLExcaliburDetector(ExcaliburDetector):
         self._cal_file_root = value
         self._calibration_required = True
 
-    def get_energy_threshold(self):
-        return self._energy_threshold
+    def get_energy_threshold_0(self):
+        return self._energy_threshold_0
 
-    def set_energy_threshold(self, value):
-        self._energy_threshold = value
+    def set_energy_threshold_0(self, value):
+        self._energy_threshold_0 = value
+        logging.info("Energy threshold 0 set to: {}".format(self._energy_threshold_0))
+        self._calibration_required = True
+
+    def get_energy_threshold_1(self):
+        return self._energy_threshold_1
+
+    def set_energy_threshold_1(self, value):
+        self._energy_threshold_1 = value
         self._calibration_required = True
 
     def get_udp_file(self):
@@ -992,8 +1008,14 @@ class HLExcaliburDetector(ExcaliburDetector):
                         self._cb.set_file_root(self._cal_file_root)
                         self._cb.set_csm_spm_mode(ExcaliburDefinitions.FEM_CSMSPM_MODE_NAMES.index(self._csm_spm_mode))
                         self._cb.set_gain_mode(ExcaliburDefinitions.FEM_GAIN_MODE_NAMES.index(self._gain_mode))
-                        self._cb.set_energy_threshold(self._energy_threshold)
+                        self._cb.set_energy_threshold_0(self._energy_threshold_0)
+                        self._cb.set_energy_threshold_1(self._energy_threshold_1)
                         self._cb.load_calibration_files(self._fems)
+                        # Check for threshold 1 file success
+                        if self._cb.get_threshold1_file_valid():
+                            self._dual_12bit_valid = True
+                        else:
+                            self._dual_12bit_valid = False
                         self.download_dac_calibration()
                         self.download_pixel_calibration()
                     else:
@@ -1646,6 +1668,12 @@ class HLExcaliburDetector(ExcaliburDetector):
     def do_acquisition(self):
         with self._comms_lock:
             self.clear_error()
+
+            # Check for dual 12bit mode and then check the mode is valid
+            if self._counter_depth == 'dual12':
+                if not self._dual_12bit_valid:
+                    self.set_error('Dual12 bit mode failed, check threshold1 file')
+                    return
             if self._hw_frames_acquired > 0:
                 # Counters have not cleared yet, send a stop acquisition before restarting
                 self.hl_stop_acquisition()
