@@ -673,6 +673,9 @@ class HLExcaliburDetector(ExcaliburDetector):
 
     def set_hv_enable(self, value):
         self._hv_enable = value
+        if int(value) == 1:
+            # Re-send the bias level first
+            self.hl_hv_bias_set('set_hv_bias', self._hv_bias)
         self.hl_hv_enable('set_hv_enable', value)
 
     def get_test_dac_file(self):
