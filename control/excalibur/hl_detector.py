@@ -1854,6 +1854,7 @@ class HLExcaliburDetector(ExcaliburDetector):
         self.hl_write_params(params)
 
     def hl_hv_bias_set(self, name, value):
+        logging.info("Setting fe_hv_bias to {}".format(value))
         if self.powercard_fem_idx < 0:
             self.set_error("Unable to set HV bias [] as server reports no power card".format(name))
             return
