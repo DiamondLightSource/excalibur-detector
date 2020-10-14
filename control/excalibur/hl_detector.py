@@ -184,6 +184,7 @@ class HLExcaliburDetector(ExcaliburDetector):
     STR_CONFIG_CAL_FILE_ROOT = 'cal_file_root'
     STR_CONFIG_ENERGY_THRESHOLD_0 = 'energy_threshold_0'
     STR_CONFIG_ENERGY_THRESHOLD_1 = 'energy_threshold_1'
+    STR_CONFIG_ENERGY_DELTA = 'energy_delta'
     STR_CONFIG_UDP_FILE = 'udp_file'
     STR_CONFIG_HV_BIAS = 'hv_bias'
     STR_CONFIG_LV_ENABLE = 'lv_enable'
@@ -267,6 +268,7 @@ class HLExcaliburDetector(ExcaliburDetector):
         self._cal_file_root = ''
         self._energy_threshold_0 = 0.0
         self._energy_threshold_1 = 0.0
+        self._energy_delta = 0.0
         self._udp_file = ''
         self._hv_bias = 0.0
         self._lv_enable = 0
@@ -424,6 +426,9 @@ class HLExcaliburDetector(ExcaliburDetector):
                     # Meta data here
                 }),
                 self.STR_CONFIG_ENERGY_THRESHOLD_1: (self.get_energy_threshold_1, self.set_energy_threshold_1, {
+                    # Meta data here
+                }),
+                self.STR_CONFIG_ENERGY_DELTA: (self.get_energy_delta, self.set_energy_delta, {
                     # Meta data here
                 }),
                 self.STR_CONFIG_UDP_FILE: (self.get_udp_file, self.set_udp_file, {
@@ -637,16 +642,35 @@ class HLExcaliburDetector(ExcaliburDetector):
         return self._energy_threshold_0
 
     def set_energy_threshold_0(self, value):
-        self._energy_threshold_0 = value
-        logging.info("Energy threshold 0 set to: {}".format(self._energy_threshold_0))
-        self._calibration_required = True
+        # Check the new threshold0 request is further than delta from threshold1
+        # If threshold1 is set to approx 0.0 then ignore this condition
+        logging.info("Setting threshold 0 to {} keV.  Threshold 1: {} keV.  Delta limit: {} keV".format(value, self._energy_threshold_1, self._energy_delta))
+        if self._energy_threshold_1 > 0.01 and value > (self._energy_threshold_1 - self._energy_delta):
+            self.set_error("Threshold 0 must be {} keV less than threshold 1".format(self._energy_delta))
+        else:
+            self._energy_threshold_0 = value
+            logging.info("Energy threshold 0 set to: {} keV".format(self._energy_threshold_0))
+            self._calibration_required = True
 
     def get_energy_threshold_1(self):
         return self._energy_threshold_1
 
     def set_energy_threshold_1(self, value):
-        self._energy_threshold_1 = value
-        self._calibration_required = True
+        # Check the new threshold0 request is further than delta from threshold1
+        logging.info("Setting threshold 1 to {} keV.  Threshold 0: {} keV.  Delta limit: {} keV".format(value, self._energy_threshold_0, self._energy_delta))
+        if value < (self._energy_threshold_0 + self._energy_delta):
+            self.set_error("Threshold 1 must be {} keV greater than threshold 0".format(self._energy_delta))
+        else:
+            self._energy_threshold_1 = value
+            logging.info("Energy threshold 1 set to: {} keV".format(self._energy_threshold_1))
+            self._calibration_required = True
+
+    def get_energy_delta(self):
+        return self._energy_delta
+
+    def set_energy_delta(self, value):
+        self._energy_delta = value
+        logging.info("Energy delta set to: {}".format(self._energy_delta))
 
     def get_udp_file(self):
         return self._udp_file
