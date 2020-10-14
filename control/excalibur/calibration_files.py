@@ -185,8 +185,9 @@ class DetectorCalibration(object):
     def load_threshold_calibration_file(self, fem, threshold):
         filename = self.cal_file_root(fem) + 'threshold' + str(threshold)
         config = ExcaliburThresholdConfigParser(filename)
-        logging.debug("Threshold file loaded gains   => %s", config.gains)
-        logging.debug("                      offsets => %s", config.offsets)
+        logging.debug("Threshold file %s", filename)
+        logging.debug("Threshold {} FEM {} loaded gains   => {}".format(threshold, fem, config.gains))
+        logging.debug("Threshold {} FEM {} loaded offsets => {}".format(threshold, fem, config.offsets))
 
         # Check if threshold 1 file is valid, required for dual 12 bit mode
         if threshold == 1:
