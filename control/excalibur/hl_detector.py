@@ -234,6 +234,7 @@ class HLExcaliburDetector(ExcaliburDetector):
 
         # Initialise hv and lv enabled status
         self._lv_enabled = 0
+        self._lv_check_counter = 2
 
         # Create the calibration object and associated status dict
         self._calibrating = 0
@@ -690,6 +691,8 @@ class HLExcaliburDetector(ExcaliburDetector):
 
     def set_lv_enable(self, value):
         self._lv_enable = value
+        if int(value) == 1:
+            self._lv_check_counter = 2
         self.hl_lv_enable('set_lv_enable', value)
 
     def get_hv_enable(self):
@@ -1519,57 +1522,60 @@ class HLExcaliburDetector(ExcaliburDetector):
 
                     fe_params = fem_params + supply_params + ['mpx3_dac_out']
 
-                    read_params = ExcaliburReadParameter(fe_params)
-                    cmd_ok, err_msg, status = self.hl_read_params(read_params)
-                    if cmd_ok:
-                        with self._param_lock:
-                            logging.debug("Slow read params: {}".format(status))
-                            lv_enabled = 1
-                            for param in fe_params:
-                                if param in status:
-                                    val = []
-                                    if param in supply_params:
-                                        for item in status[param]:
-                                            if item != 1:
-                                                val.append(0)
-                                            else:
-                                                val.append(1)
-                                        self._supply_status[param] = val
-                                    else:
-                                        if param == 'moly_temp' or param == 'moly_humidity':
+                    if self._lv_check_counter > 0:
+                        read_params = ExcaliburReadParameter(fe_params)
+                        cmd_ok, err_msg, status = self.hl_read_params(read_params)
+                        if cmd_ok:
+                            with self._param_lock:
+                                logging.debug("Slow read params: {}".format(status))
+                                self._lv_check_counter = 2
+                                lv_enabled = 1
+                                for param in fe_params:
+                                    if param in status:
+                                        val = []
+                                        if param in supply_params:
                                             for item in status[param]:
-                                                if item < 0.0:
-                                                    val.append(None)
-                                                    lv_enabled = 0
+                                                if item != 1:
+                                                    val.append(0)
                                                 else:
-                                                    val.append(item)
+                                                    val.append(1)
+                                            self._supply_status[param] = val
                                         else:
-                                            val = status[param]
-                                        self._fem_status[param] = val
-                            # Catch when the lv has been enabled and attempt to re-send calibration
-                            # Also do not return the humidity right away as it has a settling time
-                            if self._lv_enabled == 0 and lv_enabled == 1:
-                                self._calibration_required = True
-                                self._moly_humidity_counter = 3
-                            if self._moly_humidity_counter > 0:
-                                self._fem_status['moly_humidity'] = self._default_status
-                                self._moly_humidity_counter -= 1
-                            self._lv_enabled = lv_enabled
+                                            if param == 'moly_temp' or param == 'moly_humidity':
+                                                for item in status[param]:
+                                                    if item < 0.0:
+                                                        val.append(None)
+                                                        lv_enabled = 0
+                                                    else:
+                                                        val.append(item)
+                                            else:
+                                                val = status[param]
+                                            self._fem_status[param] = val
+                                # Catch when the lv has been enabled and attempt to re-send calibration
+                                # Also do not return the humidity right away as it has a settling time
+                                if self._lv_enabled == 0 and lv_enabled == 1:
+                                    self._calibration_required = True
+                                    self._moly_humidity_counter = 3
+                                if self._moly_humidity_counter > 0:
+                                    self._fem_status['moly_humidity'] = self._default_status
+                                    self._moly_humidity_counter -= 1
+                                self._lv_enabled = lv_enabled
 
-                    else:
+                        else:
 
-                        with self._param_lock:
-                            for param in fe_params:
-                                if param in supply_params:
-                                    self._supply_status[param] = self._default_status
-                                if param in fem_params:
-                                    self._fem_status[param] = self._default_status
-                            if self._lv_enable == 1:
-                                logging.error("Lost LV enabled.  Check for safety trip indicator")
-                                self.hl_toggle_lv()
-                            self._lv_enabled = 0
-                            self._read_efuse_ids = False
-                            self.set_error("FEM read failed check low voltage")
+                            with self._param_lock:
+                                self._lv_check_counter -= 1
+                                for param in fe_params:
+                                    if param in supply_params:
+                                        self._supply_status[param] = self._default_status
+                                    if param in fem_params:
+                                        self._fem_status[param] = self._default_status
+                                if self._lv_enable == 1:
+                                    logging.error("Lost LV enabled.  Check for safety trip indicator")
+                                    self.hl_toggle_lv()
+                                self._lv_enabled = 0
+                                self._read_efuse_ids = False
+                                self.set_error("FEM read failed check low voltage")
 
                     if not self._read_efuse_ids:
                         # Only read the efuse IDs if the LV is enabled
@@ -1584,6 +1590,8 @@ class HLExcaliburDetector(ExcaliburDetector):
         # Here we have detected a loss of connection
         self.set_error("Connection to hardware lost")
         self.connect({'state': False})
+        # Prime the lv check counter for when re-connection occurs
+        self._lv_check_counter = 2
         for param in self._powercard_status:
             self._powercard_status[param] = None
         for param in self.FEM_PARAMS:
