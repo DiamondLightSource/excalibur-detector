@@ -979,7 +979,7 @@ void ExcaliburFemClient::stopAcquisition(void)
       framesRead = this->rdmaRead(kExcaliburAsicCtrlFrameCount);
       FEMLOG(mFemId, logDEBUG) << "FEM ASIC control has completed " << framesRead
           << " frames, control state register1: 0x" << std::hex << ctrlState << std::dec;
-        
+
     }
       break;
     case excaliburOperationModeBurst: // Deliberate fall-thru for these modes where async stop not supported
@@ -1043,20 +1043,17 @@ void ExcaliburFemClient::stopAcquisition(void)
     FemAcquireStatus acqState = this->acquireStatus();
     FEMLOG(mFemId, logWARNING) << "DMA transfer of " << framesRead
         << " frames failed to complete in expected time during async stop";
-    FEMLOG(mFemId, logWARNING) << "Expected " << framesRead * subFramesPerFrame 
-      << " BDs TXed, got " << acqState.totalSent 
+    FEMLOG(mFemId, logWARNING) << "Expected " << framesRead * subFramesPerFrame
+      << " BDs TXed, got " << acqState.totalSent
       << " RX: top " << acqState.totalRecvTop << " bottom " << acqState.totalRecvBot;
   }
-
-//    }
-//  }
 
   if (doFullAcqStop)
   {
 
     // Send ACQUIRE stop command to the FEM
     FEMLOG(mFemId, logDEBUG) << "Sending stop command to DMA controller";
-    try 
+    try
     {
       this->acquireStop();
     }
@@ -1082,7 +1079,7 @@ void ExcaliburFemClient::stopAcquisition(void)
     // Reset ASIC control firmware block
     FEMLOG(mFemId, logDEBUG) << "Sending reset command to ASIC control";
     this->asicControlReset();
-    
+
     //FEMLOG(mFemId, logDEBUG) << "End of doFullAcqStop clause";
   }
 }

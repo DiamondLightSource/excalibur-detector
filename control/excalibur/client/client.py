@@ -67,11 +67,9 @@ class ExcaliburDefinitions(object):
     FEM_LFSR_BYPASS_MODE_ENABLED = 1 
     FEM_LFSR_BYPASS_MODE_NAMES = ('disabled', 'enabled')
     
-    FEM_COUNTER_DEPTH_MAP = OrderedDict(sorted(
-        {'1': 0, '6': 1, '12': 2, '24': 3, 'dual12': 4}.items(), 
-        key=lambda t: t[1]
-    ))
-    FEM_COUNTER_DEPTH_NAMES = FEM_COUNTER_DEPTH_MAP.keys()
+    FEM_COUNTER_DEPTH_MAP = OrderedDict(
+        (('1', 0), ('6', 1), ('12', 2), ('24', 3), ('dual12', 4))
+    )   FEM_COUNTER_DEPTH_NAMES = FEM_COUNTER_DEPTH_MAP.keys()
 
     @classmethod
     def _resolve_mode_name(cls, mode, names):  
