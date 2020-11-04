@@ -65,11 +65,11 @@ namespace FrameSimulator {
 
                 current_frame_num += 1;
                 UDPFrame frame(current_frame_num);
-                frames.push_back(frame);
+                frames_.push_back(frame);
 
             }
 
-            frames[frames.size() - 1].SOF_markers.push_back(subframe_ctr);
+            frames_[frames_.size() - 1].SOF_markers.push_back(subframe_ctr);
 
         }
 
@@ -85,8 +85,8 @@ namespace FrameSimulator {
                           boost::lexical_cast<std::string>(total_packets) + \
             " with trailer frame number " + boost::lexical_cast<std::string>(trailer_frame_ctr));
 
-            frames[frames.size() - 1].EOF_markers.push_back(subframe_ctr);
-            frames[frames.size() - 1].trailer_frame_num = trailer_frame_ctr;
+            frames_[frames_.size() - 1].EOF_markers.push_back(subframe_ctr);
+            frames_[frames_.size() - 1].trailer_frame_num = trailer_frame_ctr;
 
         }
 
@@ -95,7 +95,7 @@ namespace FrameSimulator {
         memcpy(datacp, data, size);
         pkt->data = datacp;
         pkt->size = size;
-        frames[frames.size() - 1].packets.push_back(pkt);
+        frames_[frames_.size() - 1].packets.push_back(pkt);
 
         total_packets++;
 
