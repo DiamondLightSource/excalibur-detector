@@ -69,7 +69,8 @@ class ExcaliburDefinitions(object):
     
     FEM_COUNTER_DEPTH_MAP = OrderedDict(
         (('1', 0), ('6', 1), ('12', 2), ('24', 3), ('dual12', 4))
-    )   FEM_COUNTER_DEPTH_NAMES = FEM_COUNTER_DEPTH_MAP.keys()
+    )   
+    FEM_COUNTER_DEPTH_NAMES = FEM_COUNTER_DEPTH_MAP.keys()
 
     @classmethod
     def _resolve_mode_name(cls, mode, names):  
