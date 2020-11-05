@@ -21,8 +21,9 @@ FemClient::FemClient(const int femId, const char* aHostString, int aPortNum, uns
     mEndpoint(boost::asio::ip::address::from_string(aHostString), aPortNum),
     mSocket(mIoService),
     mDeadline(mIoService),
-    mTimeout(aTimeoutInMsecs)
-{
+    mTimeout(aTimeoutInMsecs),
+    mLastPingSeq(255)
+  {
 
   // Initialise deadline timer to positive infinity so that no action will be taken until
   // a deadline is set
@@ -360,6 +361,67 @@ u32 FemClient::write(unsigned int aBus, unsigned int aWidth, unsigned int aAddre
   }
 
   return responseWriteLen;
+}
+
+/** ping - send a ping transaction to the connnected FEM
+ *
+ * This function encodes and transmits a ping transaction to the connected FEM. The response
+ * is checked ti ensure that the ping is acknowledged with the appropriate sequence ID. Error
+ * conditions are signalled by throwing FemClientExceptions as appropriate. The operation will
+ * time out according to the current timeout value.
+ */
+void FemClient::ping(void)
+{
+
+  // Increment last ping sequence
+  mLastPingSeq = (mLastPingSeq + 1) % 256;
+
+  // Create a ping transaction to send, using the current ping sequence ID.
+  FemTransaction request(CMD_INTERNAL, mLastPingSeq, WIDTH_BYTE, 0, CMD_INT_PING);
+
+  // Send the transaction
+  this->send(request);
+
+  // Receive the response
+  FemTransaction response = this->receive();
+
+  // Check that the response is an acknowledge of the appropriate ping command
+  u8 responseCmd = response.getCommand();
+  if (responseCmd != CMD_INTERNAL)
+  {
+    std::ostringstream msg;
+    msg << "Mismatched command type in FEM response to ping. Sent cmd: " << (unsigned int) CMD_INTERNAL
+        << " recvd: " << (unsigned int) responseCmd;
+    throw FemClientException(femClientResponseMismatch, msg.str());
+  }
+
+  u8 responseState = response.getState();
+  if (!(CMPBIT(responseState, STATE_ACK)) || (CMPBIT(responseState, STATE_NACK)))
+  {
+    std::ostringstream msg;
+    msg << "Ping failed: " << response.getErrorString() << " (errno="
+        << response.getErrorNum() << ")";
+    throw FemClientException(femClientMissingAck, msg.str());
+  }
+
+  u32 responseIntCmd = response.getAddress();
+  if (responseIntCmd != CMD_INT_PING)
+  {
+    std::ostringstream msg;
+    msg << "Mismached internal command in FEM response. Sent: " << CMD_INT_PING << " recvd: "
+        << responseIntCmd;
+    throw FemClientException(femClientResponseMismatch, msg.str());
+  }
+
+  u8 responseSeq = response.getBus();
+  if (responseSeq != mLastPingSeq)
+  {
+    std::ostringstream msg;
+    msg << "Mismatched ping sequence id from FEM. Sent: " << mLastPingSeq << " recvd: "
+        << responseSeq;
+    throw FemClientException(femClientResponseMismatch, msg.str());
+  }
+
 }
 
 /** command - send a command transaction to the connected FEM

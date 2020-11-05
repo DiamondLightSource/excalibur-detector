@@ -46,7 +46,7 @@ class ExcaliburTestAppDefaults(object):
         self.equalization_mode = ExcaliburDefinitions.FEM_EQUALIZATION_MODE_OFF
         self.gain_mode = ExcaliburDefinitions.FEM_GAIN_MODE_SLGM
         self.counter_select = 0
-        self.counter_depth = 12
+        self.counter_depth = '12'
         self.operation_mode = ExcaliburDefinitions.FEM_OPERATION_MODE_NORMAL
         
         self.sense_dac = 0
@@ -73,6 +73,8 @@ class ExcaliburTestApp(object):
     
     def __init__(self):
         
+        self.manual_24bit_mode = False
+
         self.defaults = ExcaliburTestAppDefaults()
         
         try:
@@ -104,6 +106,8 @@ class ExcaliburTestApp(object):
         cmd_group = parser.add_argument_group('Commands')
         cmd_group.add_argument('--dump', action='store_true',
             help='Dump the state of the control server')
+        cmd_group.add_argument('--ping', action='store_true',
+            help='Ping the detector system FEM(s)')
         cmd_group.add_argument('--reset', '-r', action='store_true', 
             help='Issue front-end reset/init')
         cmd_group.add_argument('--lvenable', type=int, dest='lv_enable',
@@ -236,10 +240,10 @@ class ExcaliburTestApp(object):
             choices=[0, 1],
             default=self.defaults.counter_select,
             help='Set MPX counter to read: 0 or 1')
-        acq_group.add_argument('--depth', type=int, dest='counter_depth',
-            choices=[1, 6, 12, 24],
+        acq_group.add_argument('--depth', type=str, dest='counter_depth',
+            choices=ExcaliburDefinitions.FEM_COUNTER_DEPTH_NAMES,
             default=self.defaults.counter_depth,
-            help='Set MPX counter bit depth: 1, 6, 12, or 24')
+            help='Set MPX counter bit depth: 1, 6, 12, 24 or dual12')
         acq_group.add_argument('--tpcount', type=int, dest='tp_count',
             default=self.defaults.tp_count, metavar='COUNT',
             help='Set MPX3 test pulse count')
@@ -254,19 +258,22 @@ class ExcaliburTestApp(object):
         self.client = ExcaliburClient(address=self.args.ip_addr, port=self.args.port, log_level=log_level)
         
     def run(self):
-        
+
         if self.args.dump:
             logging.info('Dumping state of control server:')
             self.client.print_all(logging.INFO)
             return
-        
+
         self.powercard_fem_id = self.client.get_powercard_fem_idx() + 1
         if self.powercard_fem_id > 0:
             logging.debug("Server reports power card is on FEM {}".format(self.powercard_fem_id))
         else:
             logging.debug("Server reports no power card present in system")
 
-        self.client.connect()
+        if not self.args.disconnect:
+            connected = self.client.connect()
+            if not connected:
+                return
 
         if self.args.api_trace:
             logging.debug('Setting API trace mode to {}'.format(self.args.api_trace))
@@ -281,6 +288,9 @@ class ExcaliburTestApp(object):
             ','.join([str(fem_id) for fem_id in self.fem_ids])
         ))
         
+        if self.args.ping:
+            self.do_ping()
+
         if self.args.fwversion:
             self.do_fw_version_read()
                       
@@ -326,6 +336,9 @@ class ExcaliburTestApp(object):
         if self.args.disconnect:    
             self.client.disconnect()
     
+    def do_ping(self):
+        self.client.ping()
+
     def do_fw_version_read(self):
         
         (read_ok, response) = self.client.fe_param_read('firmware_version')
@@ -601,21 +614,50 @@ class ExcaliburTestApp(object):
                     source_data_port[-1], dest_data_port_offset[-1]
                 ))
                 
-            dest_data_addr = []
-            dest_data_mac = []
-            dest_data_port = []
-            
-            for idx, node in enumerate(udp_config['nodes']):
+            if 'all_fems' in udp_config['nodes'].keys():
                 
-                dest_data_addr.append(node['ipaddr'])
-                dest_data_mac.append(node['mac'])
-                dest_data_port.append(int(node['port']))
-                    
-                logging.debug('    Node {:d} : ip {:16s} mac: {:s} port: {:5d}'.format(
-                    idx, dest_data_addr[-1], dest_data_mac[-1],
-                    dest_data_port[-1]
-                ))
-    
+                dest_data_addr= [[[]]]
+                dest_data_mac = [[[]]]
+                dest_data_port = [[[]]]
+                for dest_idx, dest in enumerate(udp_config['nodes']['all_fems']):
+                    dest_data_addr[0][0].append(dest['ipaddr'])
+                    dest_data_mac[0][0].append(dest['mac'])
+                    dest_data_port[0][0].append(int(dest['port']))
+
+                    logging.debug(
+                        '    Node {node:d} | '
+                        'ip: {ipaddr:16s} mac: {mac:s} port: {port:5d}'.format(
+                            node=dest_idx, **dest)
+                    )
+            else:
+                fems = [fem['name'] for fem in udp_config['fems']]
+
+                if all(fem in udp_config['nodes'].keys() for fem in fems):
+                    # Each FEM needs a different configuration
+                    dest_data_addr = [[[]] for _ in self.fem_ids]
+                    dest_data_mac = [[[]] for _ in self.fem_ids]
+                    dest_data_port = [[[]] for _ in self.fem_ids]
+                    for fem_idx, fem_key in enumerate(fems):
+                        for dest_idx, dest in enumerate(udp_config['nodes'][fem_key]):
+                            dest_data_addr[fem_idx][0].append(dest['ipaddr'])
+                            dest_data_mac[fem_idx][0].append(dest['mac'])
+                            dest_data_port[fem_idx][0].append(int(dest['port']))
+
+                            logging.debug(
+                                '    FEM {fem:d} Node {node:d} | '
+                                'ip: {ipaddr:16s} mac: {mac:s} port: {port:5d}'.format(
+                                    fem=fem_idx, node=dest_idx, **dest)
+                            )
+
+                else:
+                    message = "Failed to parse UDP json config." \
+                              "Node config must contain a config for each entry in fems or " \
+                              "one config with the key 'all_fems'.\n" \
+                              "Fems: {}\n" \
+                              "Node Config Keys: {}".format(fems, udp_config['nodes'].keys())
+                    logging.error(message)
+                    return
+
             farm_mode_enable = udp_config['farm_mode']['enable']
             farm_mode_num_dests = udp_config['farm_mode']['num_dests']
         
@@ -628,9 +670,9 @@ class ExcaliburTestApp(object):
             source_data_port = self.args.source_data_port
             dest_data_port_offset = self.args.dest_data_port_offset
 
-            dest_data_addr = self.args.dest_data_addr
-            dest_data_mac = self.args.dest_data_mac
-            dest_data_port = self.args.dest_data_port
+            dest_data_addr = [[[addr for addr in self.args.dest_data_addr]]]
+            dest_data_mac = [[[mac for mac in self.args.dest_data_mac]]]
+            dest_data_port = [[[port for port in self.args.dest_data_port]]]
             
             farm_mode_enable = self.args.farm_mode_enable
             farm_mode_num_dests  = self.args.farm_mode_num_dests
@@ -652,16 +694,15 @@ class ExcaliburTestApp(object):
             [[offset] for offset in dest_data_port_offset[:self.num_fems]]
         ))
           
-        # Append the UDP destination parameters, noting [[[ ]]] indexing as they are common for
-        # all FEMs and chips - there must be a better way to do this 
+        # Append the UDP destination parameters
         udp_params.append(ExcaliburParameter(
-            'dest_data_addr', [[[addr for addr in dest_data_addr]]]
+            'dest_data_addr', dest_data_addr
         ))
         udp_params.append(ExcaliburParameter(
-            'dest_data_mac', [[[mac for mac in dest_data_mac]]]
+            'dest_data_mac', dest_data_mac
         ))
         udp_params.append(ExcaliburParameter(
-            'dest_data_port', [[[port for port in dest_data_port]]]
+            'dest_data_port', dest_data_port
         ))
           
         # Append the farm mode configuration parameters
@@ -736,7 +777,7 @@ class ExcaliburTestApp(object):
         logging.info('  Setting ASIC counter select to {} '.format(self.args.counter_select))
         scan_params.append(ExcaliburParameter('mpx3_counterselect', [[self.args.counter_select]]))
         
-        counter_depth=12
+        counter_depth='12'
         logging.info('  Setting ASIC counter depth to {} bits'.format(counter_depth))
         counter_depth_val = ExcaliburDefinitions.counter_depth(counter_depth)
         scan_params.append(ExcaliburParameter('mpx3_counterdepth', [[counter_depth_val]]))
@@ -818,9 +859,10 @@ class ExcaliburTestApp(object):
 
         acq_loops = 1
         num_frames = self.args.num_frames
-           
-        # 24-bit reads are a special case, so set things up appropriately in this mode    
-        if self.args.counter_depth == 24:
+
+        # 24-bit reads are a special case in the old manual firmware mode, so set things up
+        # appropriately in this mode
+        if self.args.counter_depth == 24 and self.manual_24bit_mode:
 
             # Force counter select to C1, C0 is read manually afterwards
             self.args.counter_select = 1 
@@ -943,7 +985,7 @@ class ExcaliburTestApp(object):
     
                 frames_acquired = self.await_acquistion_completion(0x40000000)
                 
-                if self.args.counter_depth == 24:
+                if self.args.counter_depth == 24 and self.manual_24bit_mode:
                     self.client.do_command('stop_acquisition')
                     self.do_c0_matrix_read()
                 

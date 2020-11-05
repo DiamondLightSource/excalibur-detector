@@ -5,6 +5,8 @@
  *      Author: gnx91527
  */
 
+#include <map>
+
 #include <ExcaliburProcessPlugin.h>
 #include "version.h"
 namespace FrameProcessor
@@ -13,13 +15,13 @@ namespace FrameProcessor
   const std::string ExcaliburProcessPlugin::CONFIG_ASIC_COUNTER_DEPTH = "bitdepth";
   const std::string ExcaliburProcessPlugin::CONFIG_IMAGE_WIDTH = "width";
   const std::string ExcaliburProcessPlugin::CONFIG_IMAGE_HEIGHT = "height";
-  const std::string ExcaliburProcessPlugin::BIT_DEPTH[4] = {"1-bit", "6-bit", "12-bit", "24-bit"};
 
   /**
    * The constructor sets up logging used within the class.
    */
   ExcaliburProcessPlugin::ExcaliburProcessPlugin() :
-      asic_counter_depth_(DEPTH_12_BIT),
+      asic_counter_bit_depth_(Excalibur::bitDepth12),
+      asic_counter_bit_depth_str_("12-bit"),
       image_width_(2048),
       image_height_(256),
       image_pixels_(image_width_ * image_height_),
@@ -100,34 +102,27 @@ namespace FrameProcessor
    */
   void ExcaliburProcessPlugin::configure(OdinData::IpcMessage& config, OdinData::IpcMessage& reply)
   {
+
+    static std::map<std::string, Excalibur::AsicCounterBitDepth> bit_depth_map;
+
     if (config.has_param(ExcaliburProcessPlugin::CONFIG_ASIC_COUNTER_DEPTH))
     {
       std::string bit_depth_str =
           config.get_param<std::string>(ExcaliburProcessPlugin::CONFIG_ASIC_COUNTER_DEPTH);
 
-      if (bit_depth_str == BIT_DEPTH[DEPTH_1_BIT])
-      {
-        asic_counter_depth_ = DEPTH_1_BIT;
-      }
-      else if (bit_depth_str == BIT_DEPTH[DEPTH_6_BIT])
-      {
-        asic_counter_depth_ = DEPTH_6_BIT;
-      }
-      else if (bit_depth_str == BIT_DEPTH[DEPTH_12_BIT])
-      {
-        asic_counter_depth_ = DEPTH_12_BIT;
-      }
-      else if (bit_depth_str == BIT_DEPTH[DEPTH_24_BIT])
-      {
-        asic_counter_depth_ = DEPTH_24_BIT;
-      }
-      else
+      Excalibur::AsicCounterBitDepth bit_depth = Excalibur::parse_bit_depth(bit_depth_str);
+
+      if (bit_depth == Excalibur::bitDepthUnknown)
       {
         std::stringstream ss;
         ss << "Invalid bit depth requested: " << bit_depth_str;
         this->set_error(ss.str());
         LOG4CXX_ERROR(logger_, "Invalid bit depth requested: " << bit_depth_str);
         throw std::runtime_error("Invalid bit depth requested");
+      }
+      else {
+        asic_counter_bit_depth_ = bit_depth;
+        asic_counter_bit_depth_str_ = bit_depth_str;
       }
     }
 
@@ -149,7 +144,7 @@ namespace FrameProcessor
   {
     // Return the configuration of the process plugin
     std::string base_str = get_name() + "/";
-    reply.set_param(base_str + ExcaliburProcessPlugin::CONFIG_ASIC_COUNTER_DEPTH, BIT_DEPTH[asic_counter_depth_]);
+    reply.set_param(base_str + ExcaliburProcessPlugin::CONFIG_ASIC_COUNTER_DEPTH, asic_counter_bit_depth_str_);
     reply.set_param(base_str + ExcaliburProcessPlugin::CONFIG_IMAGE_WIDTH, image_width_);
     reply.set_param(base_str + ExcaliburProcessPlugin::CONFIG_IMAGE_HEIGHT, image_height_);
   }
@@ -163,7 +158,7 @@ namespace FrameProcessor
   {
     // Record the plugin's status items
     LOG4CXX_DEBUG(logger_, "Status requested for Excalibur plugin");
-    status.set_param(get_name() + "/bitdepth", BIT_DEPTH[asic_counter_depth_]);
+    status.set_param(get_name() + "/bitdepth", asic_counter_bit_depth_str_);
     status.set_param(get_name() + "/packets_lost", packets_lost_);
   }
 
@@ -189,7 +184,7 @@ namespace FrameProcessor
   {
 
     const Excalibur::FrameHeader* hdr_ptr = static_cast<const Excalibur::FrameHeader*>(frame->get_data_ptr());
-    Excalibur::AsicCounterBitDepth depth = static_cast<Excalibur::AsicCounterBitDepth>(asic_counter_depth_);
+    Excalibur::AsicCounterBitDepth depth = static_cast<Excalibur::AsicCounterBitDepth>(asic_counter_bit_depth_);
     LOG4CXX_DEBUG(logger_, "Processing lost packets for frame " << hdr_ptr->frame_number);
     LOG4CXX_DEBUG(logger_, "Packets received: " << hdr_ptr->total_packets_received
                                                 << " out of a maximum "
@@ -246,6 +241,68 @@ namespace FrameProcessor
   }
 
   /**
+   * Create an output data frame for reordered frames.
+   *
+   * \param[in] dataset_name - name of the dataset to create in the frame
+   * \param[out] data_frame - shared pointer to created data frame
+   */
+  boost::shared_ptr<Frame> ExcaliburProcessPlugin::create_data_frame(
+    const std::string &dataset_name,
+    const long long frame_number
+  )
+  {
+
+    // Create and populate metadata for the new frame
+    FrameMetaData frame_meta;
+
+    // Set the dataset name
+    frame_meta.set_dataset_name(dataset_name);
+
+    // Set the frame number
+    frame_meta.set_frame_number(frame_number);
+
+    // Set the frame data type based on the image bit depth
+    switch (asic_counter_bit_depth_)
+    {
+      case Excalibur::bitDepth1:
+      case Excalibur::bitDepth6:
+        frame_meta.set_data_type(raw_8bit);
+        break;
+
+      case Excalibur::bitDepth12:
+      case Excalibur::bitDepthDual12:
+        frame_meta.set_data_type(raw_16bit);
+        break;
+
+      case Excalibur::bitDepth24:
+        frame_meta.set_data_type(raw_32bit);
+        break;
+    }
+
+    // Set the frame dimensions
+    dimensions_t dims(2);
+    dims[0] = image_height_;
+    dims[1] = image_width_;
+    frame_meta.set_dimensions(dims);
+
+    // Set frame compression type to uncompressed
+    frame_meta.set_compression_type(no_compression);
+
+    // Set the frame number
+    frame_meta.set_frame_number(frame_number);
+
+    // Calculate the size of the output image in this data frame based on current bit depth
+    const std::size_t output_image_size = reordered_image_size(asic_counter_bit_depth_);
+    LOG4CXX_TRACE(logger_, "Output image size: " << output_image_size);
+
+    // Construct the new data block frame
+    boost::shared_ptr<Frame> data_frame =
+      boost::shared_ptr<Frame>(new DataBlockFrame(frame_meta, output_image_size));
+
+    return data_frame;
+  }
+
+  /**
    * Perform processing on the frame.  Depending on the selected bit depth
    * the corresponding pixel re-ordering algorithm is executed.
    *
@@ -283,10 +340,6 @@ namespace FrameProcessor
       LOG4CXX_TRACE(logger_, msg.str());
     }
 
-    // Determine the size of the output reordered image based on current bit depth
-    const std::size_t output_image_size = reordered_image_size(asic_counter_depth_);
-    LOG4CXX_TRACE(logger_, "Output image size: " << output_image_size);
-
     // Obtain a pointer to the start of the data in the frame
     const void* data_ptr = static_cast<const void*>(
         static_cast<const char*>(frame->get_data_ptr()) + sizeof(Excalibur::FrameHeader)
@@ -308,62 +361,42 @@ namespace FrameProcessor
         throw std::runtime_error(msg.str());
       }
 
+      // Determine the frame number from the incoming frame
+      long long frame_number = static_cast<long long>(hdr_ptr->frame_number);
 
-      // Create and populate metadata for the reordered frame
-      FrameMetaData frame_meta;
-
-      // Set the dataset name 
-      frame_meta.set_dataset_name("data");
-
-      // Set the frame number in frame metadata
-      if (asic_counter_depth_ == DEPTH_24_BIT)
+#ifdef MANUAL_24BIT_MODE
+      if (asic_counter_bit_depth_ == Excalibur::bitDepth24)
       {
         // Only every other incoming frame results in a new frame
-        frame_meta.set_frame_number(static_cast<long long>(hdr_ptr->frame_number/2));
+        frame_number = frame_number / 2;
       }
-      else
-      {
-        frame_meta.set_frame_number(static_cast<long long>(hdr_ptr->frame_number));
-      }
+#endif
 
-      // set frame data type based on the output image
-      switch (asic_counter_depth_)
-      {
-        case DEPTH_1_BIT:
-        case DEPTH_6_BIT:
-          frame_meta.set_data_type(raw_8bit);
-          break;
+      // Shared pointers to output frame data in single and dual counter modes
+      boost::shared_ptr<Frame> data_frame, data_frame_dual;
 
-        case DEPTH_12_BIT:
-          frame_meta.set_data_type(raw_16bit);
-          break;
+      // Pointers to the data buffer in output frames
+      void* output_ptr = NULL;
+      void* output_ptr_dual = NULL;
 
-        case DEPTH_24_BIT:
-          frame_meta.set_data_type(raw_32bit);
-          break;
-      }
-
-      // Setup the frame dimensions
-      dimensions_t dims(2);
-      dims[0] = image_height_;
-      dims[1] = image_width_;
-      frame_meta.set_dimensions(dims);
-
-      // Set frame compression type to uncompressed
-      frame_meta.set_compression_type(no_compression);
-
-      // Construct a new data block frame to output the reordered image
-      boost::shared_ptr<Frame> data_frame;
-      data_frame = boost::shared_ptr<Frame>(new DataBlockFrame(frame_meta, output_image_size));
+      // Create a new frame for the reordered output
+      data_frame = this->create_data_frame("data", frame_number);
 
       // Get a pointer to the data buffer in the output frame
-      void* output_ptr = data_frame->get_data_ptr();
+      output_ptr = data_frame->get_data_ptr();
+
+      // In dual-12 bit mode create a second new frame and get data buffer pointer
+      if (asic_counter_bit_depth_ == Excalibur::bitDepthDual12)
+      {
+        data_frame_dual = this->create_data_frame("data2", frame_number);
+        output_ptr_dual = data_frame_dual->get_data_ptr();
+      }
 
       // Calculate the FEM frame size once so it can be used in the following loop
       // repeatedly
       std::size_t fem_frame_size = (
-          Excalibur::num_subframes[asic_counter_depth_] *
-          Excalibur::subframe_size(static_cast<Excalibur::AsicCounterBitDepth>(asic_counter_depth_))
+          Excalibur::num_subframes[asic_counter_bit_depth_] *
+          Excalibur::subframe_size(static_cast<Excalibur::AsicCounterBitDepth>(asic_counter_bit_depth_))
       );
 
       // Loop over active FEMs in the input frame image data, reordering pixels into the output
@@ -387,37 +420,51 @@ namespace FrameProcessor
             << ": stripe orientation is " << (stripe_is_even ? "even" : "odd"));
 
         // Reorder strip according to counter depth
-        switch (asic_counter_depth_)
+        switch (asic_counter_bit_depth_)
         {
-          case DEPTH_1_BIT: // 1-bit counter depth
+          case Excalibur::bitDepth1: // 1-bit counter depth
             reorder_1bit_stripe(static_cast<unsigned int *>(input_ptr),
                                 static_cast<unsigned char *>(output_ptr) + output_offset,
                                 stripe_is_even);
             break;
 
-          case DEPTH_6_BIT: // 6-bit counter depth
+          case Excalibur::bitDepth6: // 6-bit counter depth
             reorder_6bit_stripe(static_cast<unsigned char *>(input_ptr),
                                 static_cast<unsigned char *>(output_ptr) + output_offset,
                                 stripe_is_even);
             break;
 
-          case DEPTH_12_BIT: // 12-bit counter depth
+          case Excalibur::bitDepth12: // 12-bit counter depth
             reorder_12bit_stripe(static_cast<unsigned short *>(input_ptr),
                                  static_cast<unsigned short *>(output_ptr) + output_offset,
                                  stripe_is_even);
             break;
 
-          case DEPTH_24_BIT: // 24-bit counter depth needs special handling to merge two counters
+          case Excalibur::bitDepthDual12: // Dual 12-bit mode reorders both counters into both datasets
+            {
+              void* c1_input_ptr = input_ptr;
+              void* c0_input_ptr = static_cast<void *>(static_cast<char *>(input_ptr) + fem_frame_size / 2);
 
-            void* c1_input_ptr = input_ptr;
-            void* c0_input_ptr =  static_cast<void *>(static_cast<char *>(input_ptr) + fem_frame_size / 2);
+              reorder_12bit_stripe(static_cast<unsigned short *>(c0_input_ptr),
+                                  static_cast<unsigned short *>(output_ptr) + output_offset,
+                                  stripe_is_even);
+              reorder_12bit_stripe(static_cast<unsigned short *>(c1_input_ptr),
+                                  static_cast<unsigned short *>(output_ptr_dual) + output_offset,
+                                  stripe_is_even);
+            }
+            break;
 
-            reorder_24bit_stripe(
-                static_cast<unsigned short *>(c0_input_ptr),
-                static_cast<unsigned short *>(c1_input_ptr),
-                static_cast<unsigned int *>(output_ptr) + output_offset,
-                stripe_is_even);
+          case Excalibur::bitDepth24: // 24-bit counter depth needs special handling to merge two counters
+            {
+              void* c1_input_ptr = input_ptr;
+              void* c0_input_ptr = static_cast<void *>(static_cast<char *>(input_ptr) + fem_frame_size / 2);
 
+              reorder_24bit_stripe(
+                  static_cast<unsigned short *>(c0_input_ptr),
+                  static_cast<unsigned short *>(c1_input_ptr),
+                  static_cast<unsigned int *>(output_ptr) + output_offset,
+                  stripe_is_even);
+            }
             break;
         }
       }
@@ -425,6 +472,13 @@ namespace FrameProcessor
       // Push the output data frame
       LOG4CXX_TRACE(logger_, "Pushing data frame.");
       this->push(data_frame);
+
+      // Push the second data frame in dual counter mode
+      if (asic_counter_bit_depth_ == Excalibur::bitDepthDual12)
+      {
+        LOG4CXX_TRACE(logger_, "Pushing second data frame in dual counter mode.");
+        this->push(data_frame_dual);
+      }
 
     }
     catch (const std::exception& e)
@@ -442,22 +496,25 @@ namespace FrameProcessor
    * \param[in] asic_counter_depth
    * \return size of the reordered image in bytes
    */
-  std::size_t ExcaliburProcessPlugin::reordered_image_size(int asic_counter_depth) {
+  std::size_t ExcaliburProcessPlugin::reordered_image_size(
+    Excalibur::AsicCounterBitDepth asic_counter_depth)
+  {
 
     std::size_t slice_size = 0;
 
     switch (asic_counter_depth)
     {
-      case DEPTH_1_BIT:
-      case DEPTH_6_BIT:
+      case Excalibur::bitDepth1:
+      case Excalibur::bitDepth6:
         slice_size = image_width_ * image_height_ * sizeof(unsigned char);
         break;
 
-      case DEPTH_12_BIT:
+      case Excalibur::bitDepth12:
+      case Excalibur::bitDepthDual12:
         slice_size = image_width_ * image_height_ * sizeof(unsigned short);
         break;
 
-      case DEPTH_24_BIT:
+      case Excalibur::bitDepth24:
         slice_size = image_width_ * image_height_ * sizeof(unsigned int);
         break;
 

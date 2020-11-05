@@ -1,6 +1,6 @@
 """fem_api_parameters.py - EXCALIBUR FEM API parameter definitions
 
-Automatically generated on: Tue Mar  6 15:59:56 2018 by generate_fem_api_parameters.py - do not edit manually!
+Automatically generated on: Mon Mar  2 16:48:31 2020 by generate_fem_api_parameters.py - do not edit manually!
 
 """
 
@@ -51,6 +51,7 @@ FEM_OP_LOADDACCONFIG = 5
 FEM_OP_FEINIT = 6
 FEM_OP_REBOOT = 7
 FEM_OP_RESET_UDP_COUNTER = 8
+FEM_OP_PING = 9
 FEM_OP_MPXIII_COLOURMODE = 1000
 FEM_OP_MPXIII_COUNTERDEPTH = 1001
 FEM_OP_MPXIII_EXTERNALTRIGGER = 1002

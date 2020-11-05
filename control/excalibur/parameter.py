@@ -9,6 +9,8 @@ from collections import OrderedDict
 from .fem_api_parameters import *
 
 FEM_RTN_INTERNALERROR = -1
+FEM_RTN_CONNECTION_CLOSED = 10000
+FEM_RTN_TIMEOUT = 10001
 CHIPS_PER_FEM = FEM_CHIPS_PER_STRIPE_X
 FEM_PIXELS_PER_CHIP = FEM_PIXELS_PER_CHIP_X * FEM_PIXELS_PER_CHIP_Y
 
@@ -203,3 +205,4 @@ class ExcaliburFrontEndCommandMap(OrderedDict):
         self['load_dacconfig'] = (FEM_OP_LOADDACCONFIG, 'DAC config load', FEM_RTN_INTERNALERROR)
         self['fem_reboot'] = (FEM_OP_REBOOT, 'FEM reboot', FEM_RTN_INTERNALERROR)
         self['reset_udp_counter'] = (FEM_OP_RESET_UDP_COUNTER, 'reset udp counter', FEM_RTN_INTERNALERROR)
+        self['ping'] = (FEM_OP_PING, 'ping', FEM_RTN_INTERNALERROR)

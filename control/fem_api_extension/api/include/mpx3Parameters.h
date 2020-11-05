@@ -65,6 +65,7 @@ typedef enum
   counterDepth6,
   counterDepth12,
   counterDepth24,
+  counterDepthDual12,
   numCounterDepths
 
 } mpx3CounterDepth;
