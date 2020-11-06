@@ -337,6 +337,7 @@ void ExcaliburFrameDecoder::process_packet_header(size_t bytes_received, int por
         if (empty_buffer_queue_.empty())
         {
           current_frame_buffer_ = dropped_frame_buffer_.get();
+          frames_dropped_++;
 
           if (!dropping_frame_data_)
           {
