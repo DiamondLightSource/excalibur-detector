@@ -43,13 +43,16 @@ class ExcaliburAdapter(ApiAdapter):
         # Compile the regular expression used to resolve paths into actions and resources
         self.path_regexp = re.compile('(.*?)/(.*)')
 
+        # Determine if the raw (low-level) or high-level detector class is to be used
+        use_raw = bool(self.options.get('raw_detector', ExcaliburAdapter.use_raw_detector))
+
         # Parse the FEM connection information out of the adapter options and initialise the
         # detector object
         self.detector = None
         if 'detector_fems' in self.options:
             fems = [tuple(fem.strip().split(':')) for fem in self.options['detector_fems'].split(',')]
             try:
-                if ExcaliburAdapter.use_raw_detector:
+                if use_raw:
                     self.detector = ExcaliburDetector(fems)
                 else:
                     simulated = False
@@ -61,28 +64,43 @@ class ExcaliburAdapter(ApiAdapter):
                         except Exception as e:
                             logging.error('Failed to parse simulated flag from options: {}'.format(e))
                     self.detector = HLExcaliburDetector(fems, simulated)
-                logging.debug('ExcaliburAdapter loaded')
+                logging.debug('ExcaliburAdapter loaded with {} detector'.format(
+                    'raw' if use_raw else 'high-level'
+                ))
                 
                 if 'powercard_fem_idx' in self.options:
                     try:
                         powercard_fem_idx = int(self.options['powercard_fem_idx'])
-                    except Exception as e:
-                        logging.error('Failed to parse powercard FEM index from options: {}'.format(e))
+                    except ValueError as e:
+                        logging.error('Failed to parse powercard FEM index from options: %s', e)
                     else:
-                        logging.debug('Setting power card FEM index to %d', int(self.options['powercard_fem_idx']))
+                        logging.debug('Setting power card FEM index to %d',
+                            int(self.options['powercard_fem_idx'])
+                        )
                         self.detector.set_powercard_fem_idx(powercard_fem_idx)
-                    
+
                 if 'chip_enable_mask' in self.options:
                     try:
-                        chip_enable_mask = [int(mask, 0) for mask in self.options['chip_enable_mask'].split(',')]
+                        chip_enable_mask = [
+                            int(mask, 0) for mask in self.options['chip_enable_mask'].split(',')
+                        ]
                     except ValueError as e:
-                        logging.error("Failed to parse chip enable mask from options: {}".format(e))
+                        logging.error("Failed to parse chip enable mask from options: %s", e)
                     else:
-                        logging.debug("Setting chip enable mask for FEMS: {}".format(
-                            ', '.join([hex(mask) for mask in chip_enable_mask]))
+                        logging.debug("Setting chip enable mask for FEMS: %s",
+                            ', '.join([hex(mask) for mask in chip_enable_mask])
                         )
                         self.detector.set_chip_enable_mask(chip_enable_mask)
-                        
+
+                if 'fem_timeout_ms' in self.options:
+                    try:
+                        fem_timeout_ms = int(self.options['fem_timeout_ms'])
+                    except ValueError as e:
+                        logging.error("Failed to parse FEM timeout from options: %s", e)
+                    else:
+                        logging.debug("Setting FEM timeout to %d ms", fem_timeout_ms)
+                        self.detector.set_fem_timeout(fem_timeout_ms)
+
             except ExcaliburDetectorError as e:
                 logging.error('ExcaliburAdapter failed to initialise detector: %s', e)
         else:

@@ -13,8 +13,6 @@ std::map<int, std::vector<short> > short_params;
 std::map<int, std::vector<double> > double_params;
 std::map<int, std::vector<std::string> > string_params;
 
-const unsigned int kClientTimeoutMsecs = 10000;
-
 typedef struct {
 	ExcaliburFemClient* client;
 	FemApiError         error;
@@ -46,7 +44,7 @@ int femInitialise(void* ctlHandle, const CtlCallbacks* callbacks, const CtlConfi
 
 	try
 	{
-		femHandle->client = new ExcaliburFemClient(ctlHandle, callbacks, config, kClientTimeoutMsecs);
+		femHandle->client = new ExcaliburFemClient(ctlHandle, callbacks, config, config->timeout_ms);
 
 	}
 	catch (FemClientException& e)

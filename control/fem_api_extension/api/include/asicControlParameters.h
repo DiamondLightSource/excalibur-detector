@@ -46,7 +46,7 @@ const u32 kExcaliburAsicTestPulseCount = kExcaliburAsicControlAddr + 12;
 
 const u32 KExcaliburV5FirmwareVersion = kExcaliburAsicControlAddr + 16;
 const u32 kExcaliburAsicCtrlState1 = kExcaliburAsicControlAddr + 17;
-const u32 kExcaliburAsicCtrlFrameCount = kExcaliburAsicControlAddr + 20;
+const u32 kExcaliburAsicCtrlFrameCount = kExcaliburAsicControlAddr + 19;
 
 #ifdef LEGACY_RDMA_ADDRESS_SCHEME
 const u32 kExcaliburAsicDpmRdmaAddress = 0x50000000;
@@ -77,6 +77,7 @@ typedef enum
 //	asicRunSequentialC0   = 0xa41,
 //	asicRunSequentialC1   = 0x1241,
   asicPixelMatrixRead = 0x201,
+  asicDualCounterRead = 0x800,
   asicPixelConfigRead = 0x2601,
   asicTestPulseEnable = 0x4000,
   asicExternalTrigger = 0x20000000,
@@ -103,7 +104,11 @@ typedef enum
 
 typedef enum
 {
-  lfsr12Bypass = 0, lfsr12Enable = 1, lfsr6Bypass = 2, lfsr6Enable = 3
+  lfsrDecodeModeUnknown = -1,
+  lfsr12Bypass = 0,
+  lfsr12Enable = 1,
+  lfsr6Bypass = 2,
+  lfsr6Enable = 3
 } asicLfsrDecodeMode;
 
 #endif /* EXCALIBURFEMRDMAADDRESSES_H_ */

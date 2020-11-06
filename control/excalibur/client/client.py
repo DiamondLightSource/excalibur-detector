@@ -5,6 +5,15 @@ import time
 import logging
 from collections import OrderedDict
 
+try:
+    from pygments import highlight
+    from pygments.lexers import JsonLexer
+    from pygments.formatters import TerminalFormatter
+    has_pygments = True
+except ImportError:
+    has_pygments = False
+
+
 class ExcaliburDefinitions(object):
 
     ERROR_OK = 0
@@ -58,8 +67,11 @@ class ExcaliburDefinitions(object):
     FEM_LFSR_BYPASS_MODE_ENABLED = 1 
     FEM_LFSR_BYPASS_MODE_NAMES = ('disabled', 'enabled')
     
-    FEM_COUNTER_DEPTH_MAP = {1: 0, 6: 1, 12: 2, 24: 3}
-    
+    FEM_COUNTER_DEPTH_MAP = OrderedDict(
+        (('1', 0), ('6', 1), ('12', 2), ('24', 3), ('dual12', 4))
+    )   
+    FEM_COUNTER_DEPTH_NAMES = FEM_COUNTER_DEPTH_MAP.keys()
+
     @classmethod
     def _resolve_mode_name(cls, mode, names):  
         try:
@@ -133,7 +145,7 @@ class ExcaliburParameter(OrderedDict):
      
 class ExcaliburClient(object):
         
-    def __init__(self, address='localhost', port=8888, log_level=logging.INFO):
+    def __init__(self, address='localhost', port=8888, logger=None, log_level=logging.INFO):
     
         self.url = 'http://{}:{}/api/0.1/excalibur/'.format(address, port)
         
@@ -144,7 +156,11 @@ class ExcaliburClient(object):
         
         self.request_headers = {'Content-Type': 'application/json'}
         
-        self.logger = logging.getLogger('ExcaliburClient')
+        if logger is None:
+            self.logger = logging.getLogger('ExcaliburClient')
+        else:
+            self.logger = logger
+            
         self.logger.setLevel(log_level)
         logging.getLogger('requests').setLevel(logging.WARNING)
         logging.getLogger('urllib3').setLevel(logging.WARNING)
@@ -159,7 +175,11 @@ class ExcaliburClient(object):
         else:
             json_data = response
             
-        self.logger.log(log_level, self._pp.pformat(json_data))
+        if has_pygments:
+            json_str = json.dumps(json_data, indent=2, sort_keys=False)
+            self.logger.log(log_level, highlight(json_str, JsonLexer(), TerminalFormatter()))
+        else:
+            self.logger.log(log_level, self._pp.pformat(json_data))
     
     def print_all(self, log_level=logging.DEBUG):
         
@@ -240,14 +260,17 @@ class ExcaliburClient(object):
         return powercard_fem_idx
 
     def connect(self):
-        
+
         connected = self.get_param('status/connected')
         if not connected:
             self.logger.info('Detector not connected, sending connect command')
             self.exec_command('connect', {'state': True})
+            connected = self.get_param('status/connected')
         else:
             self.logger.info('Detector already connected')
-            
+
+        return connected
+
     def disconnect(self):
         
         self.exec_command('connect', {'state': False})
@@ -263,6 +286,11 @@ class ExcaliburClient(object):
         (succeeded, _) = self.exec_command(cmd, cmd_params)
         return succeeded
             
+    def ping(self):
+
+        self.logger.info('Pinging detector FEM(s)')
+        (ping_ok, _) = self.exec_command('ping')
+
     def fe_init(self):
              
         self.logger.info('Initialising front-end')

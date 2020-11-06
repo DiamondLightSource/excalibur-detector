@@ -84,30 +84,23 @@ namespace FrameProcessor
     /** Configuration constant for reset of 24bit image counter **/
     static const std::string CONFIG_RESET_24_BIT;
 
-    /** Configuration constant for 1 bit asic counter depth */
-    static const int DEPTH_1_BIT  = 0;
-    /** Configuration constant for 6 bit asic counter depth */
-    static const int DEPTH_6_BIT  = 1;
-    /** Configuration constant for 12 bit asic counter depth */
-    static const int DEPTH_12_BIT = 2;
-    /** Configuration constant for 24 bit asic counter depth */
-    static const int DEPTH_24_BIT = 3;
-    /** Configuration string representations for the bit depths */
-    static const std::string BIT_DEPTH[4];
-
     void process_lost_packets(boost::shared_ptr<Frame>& frame);
+    boost::shared_ptr<Frame> create_data_frame(const std::string &dataset_name,
+      const long long frame_number);
     void process_frame(boost::shared_ptr<Frame> frame);
     void reorder_1bit_stripe(unsigned int* in, unsigned char* out, bool stripe_is_even);
     void reorder_6bit_stripe(unsigned char* in, unsigned char* out, bool stripe_is_even);
     void reorder_12bit_stripe(unsigned short* in, unsigned short* out, bool stripe_is_even);
     void reorder_24bit_stripe(unsigned short* in_c0, unsigned short* in_c1, unsigned int* out,
         bool stripe_is_even);
-    std::size_t reordered_image_size(int asic_counter_depth_);
+    std::size_t reordered_image_size(Excalibur::AsicCounterBitDepth asic_counter_depth_);
 
     /** Pointer to logger **/
     LoggerPtr logger_;
     /** Bit depth of the incoming frames **/
-    int asic_counter_depth_;
+    Excalibur::AsicCounterBitDepth asic_counter_bit_depth_;
+    /** Bit depth string for reporting in config and status replies **/
+    std::string asic_counter_bit_depth_str_;
     /** Image width **/
     int image_width_;
     /** Image height **/

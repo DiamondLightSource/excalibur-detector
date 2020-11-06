@@ -126,10 +126,11 @@ static PyObject* _initialise(PyObject* self, PyObject* args)
     char* fem_address;
     int fem_port;
     char* data_address;
+    unsigned int timeout_ms = 10000;
     int rc;
 
-    if (!PyArg_ParseTuple(args, "isis", &fem_id, &fem_address, &fem_port,
-                          &data_address)) {
+    if (!PyArg_ParseTuple(args, "isis|I", &fem_id, &fem_address, &fem_port,
+                          &data_address, &timeout_ms)) {
         PyErr_SetString(fem_api_error, "Incorrect arguments passed to initialise FEM API");
         return NULL;
     }
@@ -145,6 +146,7 @@ static PyObject* _initialise(PyObject* self, PyObject* args)
     fem_ptr->config.femAddress = fem_address;
     fem_ptr->config.femPort = fem_port;
     fem_ptr->config.dataAddress = data_address;
+    fem_ptr->config.timeout_ms = timeout_ms;
 
     /* Initialise the API trace flag */
     fem_ptr->api_trace = 0;

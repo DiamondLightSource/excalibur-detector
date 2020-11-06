@@ -70,6 +70,19 @@ enum protocol_commands
   CMD_PERSONALITY = 4
 };
 
+// Supported internal commands
+enum protocol_int_command
+{
+	CMD_INT_FIRMWARE = 0,             //!< Reboot to selected firmware
+	CMD_INT_GET_HW_INIT_STATE = 1,    //!< Get hardware init. state
+	CMD_INT_WRITE_TO_SYSACE = 2,      //!< Write image to compact flash card via SystemACE
+	CMD_INT_GET_FPM_ID = 3,           //!< Get FPM ID
+	CMD_INT_GET_FWIMAGE_ADDRESS = 4,  //!< Get address of where to load SystemACE header / images
+	CMD_INT_GET_FWIMAGE_METADATA = 5, //!< Get metadata of specified SystemACE image
+	CMD_INT_VERIFY_SYSACE = 6,        //!< Verify checksum (CRC32) of SystemACE image from CF
+	CMD_INT_PING = 7                  //!< Ping FEM to verify responsive
+};
+
 // Target bus for commands
 enum protocol_bus_type
 {

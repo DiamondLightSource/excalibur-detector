@@ -362,6 +362,11 @@ u32 FemTransaction::getAddress(void)
   return mHeader.address;
 }
 
+u8 FemTransaction::getBus(void)
+{
+  return mHeader.bus_target;
+}
+
 std::ostream& operator<<(std::ostream& aOut, const FemTransaction &aTrans)
 {
 

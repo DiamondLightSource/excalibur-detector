@@ -317,6 +317,8 @@ private:
   unsigned short mMpx3ColumnTestPulseEnable[kNumAsicsPerFem][kNumColsPerAsic];
   unsigned short mMpx3GlobalTestPulseEnable;
   mpx3CounterSelect mMpx3CounterSelect;
+  mpx3CounterDepth mMpx3CounterDepth;
+  mpx3CounterDepth mCurrentMpx3CounterDepth;
   bool mMpx3Enable[kNumAsicsPerFem];
   unsigned int mMpx3TestPulseCount;
 
