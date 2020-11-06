@@ -145,7 +145,7 @@ class ExcaliburParameter(OrderedDict):
      
 class ExcaliburClient(object):
         
-    def __init__(self, address='localhost', port=8888, log_level=logging.INFO):
+    def __init__(self, address='localhost', port=8888, logger=None, log_level=logging.INFO):
     
         self.url = 'http://{}:{}/api/0.1/excalibur/'.format(address, port)
         
@@ -156,7 +156,11 @@ class ExcaliburClient(object):
         
         self.request_headers = {'Content-Type': 'application/json'}
         
-        self.logger = logging.getLogger('ExcaliburClient')
+        if logger is None:
+            self.logger = logging.getLogger('ExcaliburClient')
+        else:
+            self.logger = logger
+            
         self.logger.setLevel(log_level)
         logging.getLogger('requests').setLevel(logging.WARNING)
         logging.getLogger('urllib3').setLevel(logging.WARNING)
