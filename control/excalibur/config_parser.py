@@ -211,11 +211,13 @@ class ExcaliburThresholdConfigParser(object):
         self._expected_size = expected_size
         self._gains = []
         self._offsets = []
+        self._file_valid = False
 
         try:
             with open(config_file) as config_fp:
                 self._gains.extend([float(val) for val in config_fp.readline().strip().split(' ')])
                 self._offsets.extend([float(val) for val in config_fp.readline().strip().split(' ')])
+                self._file_valid = True
         except Exception as e:
             if config_file.split('/')[-1] == 'threshold0':
                 # This is bad as we require the threshold0 file
@@ -226,6 +228,10 @@ class ExcaliburThresholdConfigParser(object):
                 self._gains = None
                 self._offsets = None
                 logging.info('Unable to parse threshold file: {}'.format(e))
+
+    @property
+    def valid(self):
+        return self._file_valid
 
     @property
     def gains(self):

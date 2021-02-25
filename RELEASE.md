@@ -2,6 +2,23 @@
 
 Module excalibur-detector
 
+## [1-0-0beta] - 2020-11-06
+### Added
+- Dual 12 bit threshold checks
+
+### Changed
+- Merged master containing official 24bit release changes from STFC
+- Improved logging
+- Improved LV drop handling
+
+## [0-11-0beta] - 2020-09-03
+### Added
+- Added dual 12 bit mode
+
+### Changed
+- Updated 24 bit mode to use fast firmware 24 bit implementation
+- Improved connection logic using latest firmware driver features
+
 ## [0-10-5] - 2020-05-19
 ### Changed
 - Update to odin-data 1-4-0dls3
