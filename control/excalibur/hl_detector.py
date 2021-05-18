@@ -232,6 +232,10 @@ class HLExcaliburDetector(ExcaliburDetector):
         self._frame_rate = None
         self._acquisition_complete = None
 
+        # Initialise polling variables
+        self._poll_active = True
+        self._poll_timeout = datetime.now()
+
         # Initialise hv and lv enabled status
         self._lv_enabled = 0
         self._lv_check_counter = 2
@@ -1226,6 +1230,11 @@ class HLExcaliburDetector(ExcaliburDetector):
         for fem in self._fems:
             self.set_calibration_status(fem, 1, 'disch')
 
+    def deactivate_polling(self):
+        logging.info("Deactivating polling now")
+        self._poll_active = False
+        self._poll_timeout = datetime.now()
+
     def status_loop(self):
         # Status loop has two polling rates, fast and slow
         # Fast poll is currently set to 0.2 s
@@ -1246,12 +1255,19 @@ class HLExcaliburDetector(ExcaliburDetector):
                         self.update_calibration(self.STR_STATUS_LV_ENABLED, '1')
                     except:
                         pass
-            if (datetime.now() - self._slow_update_time).seconds > 10.0:
-                self._slow_update_time = datetime.now()
-                self.slow_read()
-            if (datetime.now() - self._medium_update_time).seconds > 10.0:
-                self._medium_update_time = datetime.now()
-                self.power_card_read()
+            if self._poll_active:
+                if (datetime.now() - self._slow_update_time).seconds > 10.0:
+                    self._slow_update_time = datetime.now()
+                    self.slow_read()
+                if (datetime.now() - self._medium_update_time).seconds > 10.0:
+                    self._medium_update_time = datetime.now()
+                    self.power_card_read()
+            else:
+                # Check for the poll disable timeout
+                if (datetime.now() - self._poll_timeout).total_seconds() > 60.0:
+                    logging.info("Polling disable timed out, reactivating")
+                    self._poll_active = True
+                    self._poll_timeout = datetime.now()
             if (datetime.now() - self._fast_update_time).microseconds > 100000:
                 self._fast_update_time = datetime.now()
                 self.fast_read()
@@ -1322,6 +1338,8 @@ class HLExcaliburDetector(ExcaliburDetector):
                 response = {'value': 1}
             elif path == 'command/configure_mask':
                 response = {'value': 1}
+            elif path == 'command/pause_polling':
+                response = {'value': 1}
             else:
                 try:
                     logging.debug("Searching for '%s': %s", path, self._tree_status.get(path, True))
@@ -1339,8 +1357,11 @@ class HLExcaliburDetector(ExcaliburDetector):
             if path == 'command/start_acquisition':
                 # Starting an acquisition!
                 logging.debug('Start acquisition has been called')
+                self._poll_timeout = datetime.now()
                 self.hl_arm_detector()
                 self.do_acquisition()
+            elif path == 'command/pause_polling':
+                self.deactivate_polling()
             elif path == 'command/stop_acquisition':
                 # Starting an acquisition!
                 logging.debug('Abort acquisition has been called')
