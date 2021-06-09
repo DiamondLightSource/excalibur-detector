@@ -970,9 +970,31 @@ void ExcaliburFemClient::stopAcquisition(void)
       controlRegState |= asicStopAcquisition;
       this->asicControlCommandExecute((asicControlCommand)controlRegState);
 
-      // Wait at least the acquisition time (shutter time) plus 500us readout time before
-      // checking the state to allow last frame to be read out
-      usleep((mAcquisitionTimeMs * 1000) + counterReadoutTimeUs);
+      framesRead = this->rdmaRead(kExcaliburAsicCtrlFrameCount);
+      FEMLOG(mFemId, logDEBUG) << "Frames read out: " << framesRead << " requested: " << mNumFrames;
+
+      // If not all the requested frames have been read out, wait up to the acquisition time
+      // (shutter time) plus the counter readout time before checking the state, to allow the
+      // currently active frame to be read out
+      if (framesRead < mNumFrames)
+      {
+        FEMLOG(mFemId, logINFO) << framesRead << " out of " << mNumFrames
+            << " read out, waiting for current frame to complete before stopping";
+
+        u32 currentFramesRead = framesRead;
+        const unsigned int pollSleepMs = 100;
+        unsigned int numPollLoops = (mAcquisitionTimeMs / pollSleepMs) + 1;
+        unsigned int pollCount = 0;
+
+        while ((framesRead < (currentFramesRead + 1)) && (pollCount++ < numPollLoops))
+        {
+          usleep(pollSleepMs * 1000);
+          framesRead = this->rdmaRead(kExcaliburAsicCtrlFrameCount);
+        }
+        usleep(counterReadoutTimeUs);
+        FEMLOG(mFemId, logDEBUG) << "End of polling loop frames read: " << framesRead
+          << " poll count: " << pollCount << "/" << numPollLoops;
+      }
 
       // Read control state register for diagnostics
       u32 ctrlState = this->rdmaRead(kExcaliburAsicCtrlState1);
