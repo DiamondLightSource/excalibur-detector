@@ -136,6 +136,7 @@ class HLExcaliburDetector(ExcaliburDetector):
         ]
 
     STR_STATUS = 'status'
+    STR_STATUS_POLL_ACTIVE = 'poll_active'
     STR_STATUS_SENSOR = 'sensor'
     STR_STATUS_SENSOR_WIDTH = 'width'
     STR_STATUS_SENSOR_HEIGHT = 'height'
@@ -328,6 +329,9 @@ class HLExcaliburDetector(ExcaliburDetector):
                     # Meta data here
                 }),
                 self.STR_STATUS_STATE: (self.get_state, {
+                    # Meta data here
+                }),
+                self.STR_STATUS_POLL_ACTIVE: (lambda: self._poll_active, {
                     # Meta data here
                 }),
                 self.STR_STATUS_FEM_STATE: (self.get_fem_state, {
@@ -1235,6 +1239,10 @@ class HLExcaliburDetector(ExcaliburDetector):
         self._poll_active = False
         self._poll_timeout = datetime.now()
 
+    def activate_polling(self):
+        logging.info("Activating polling now")
+        self._poll_active = True
+
     def status_loop(self):
         # Status loop has two polling rates, fast and slow
         # Fast poll is currently set to 0.2 s
@@ -1340,6 +1348,8 @@ class HLExcaliburDetector(ExcaliburDetector):
                 response = {'value': 1}
             elif path == 'command/pause_polling':
                 response = {'value': 1}
+            elif path == 'command/continue_polling':
+                response = {'value': 1}
             else:
                 try:
                     logging.debug("Searching for '%s': %s", path, self._tree_status.get(path, True))
@@ -1362,6 +1372,8 @@ class HLExcaliburDetector(ExcaliburDetector):
                 self.do_acquisition()
             elif path == 'command/pause_polling':
                 self.deactivate_polling()
+            elif path == 'command/continue_polling':
+                self.activate_polling()
             elif path == 'command/stop_acquisition':
                 # Starting an acquisition!
                 logging.debug('Abort acquisition has been called')
