@@ -567,13 +567,13 @@ class HLExcaliburDetector(ExcaliburDetector):
 
     def set_operation_mode(self, value):
         self._operation_mode = value
-    
+
     def get_lfsr_bypass(self):
         return self._lfsr_bypass
 
     def set_lfsr_bypass(self, value):
         self._lfsr_bypass = value
-    
+
     def get_read_write_mode(self):
         return self._read_write_mode
 
@@ -610,7 +610,7 @@ class HLExcaliburDetector(ExcaliburDetector):
     def set_csm_spm_mode(self, value):
         self._csm_spm_mode = value
         self._calibration_required = True
-    
+
     def get_colour_mode(self):
         return self._colour_mode
 
@@ -1067,7 +1067,7 @@ class HLExcaliburDetector(ExcaliburDetector):
 
     def get_chip_ids(self, fem_id):
         # Return either the default chip IDs or reversed chip IDs depending on the FEM
-        # ID.  TODO: 
+        # ID.  TODO:
         chip_ids = ExcaliburDefinitions.FEM_DEFAULT_CHIP_IDS
         if fem_id & 1 != 1:
             chip_ids = reversed(chip_ids)
@@ -1220,7 +1220,7 @@ class HLExcaliburDetector(ExcaliburDetector):
 
         with self._comms_lock:
             self.hl_write_params(pixel_params)
-        
+
             time.sleep(1.0)
 
             # Send the command to load the pixel configuration
@@ -1507,7 +1507,7 @@ class HLExcaliburDetector(ExcaliburDetector):
                             # Here we have detected a possible loss of connection
                             logging.error("Connection to hardware lost in power_card_read method")
                             self.connection_lost()
-        
+
         with self._param_lock:
             # Check for the current HV enabled state
             hv_enabled = 0
@@ -2032,7 +2032,7 @@ class HLExcaliburDetector(ExcaliburDetector):
         else:
             response_status = -1
             logging.error("No EFUSE ID root directory supplied")
-        
+
         logging.debug("EFUSE: %s", efuse_dict)
         return response_status, efuse_dict
 
