@@ -55,7 +55,15 @@ class ExcaliburAdapter(ApiAdapter):
                 if use_raw:
                     self.detector = ExcaliburDetector(fems)
                 else:
-                    self.detector = HLExcaliburDetector(fems)
+                    simulated = False
+                    if 'simulated' in self.options:
+                        try:
+                            if self.options['simulated'] == 'True':
+                                simulated = True
+                                logging.info("Excalibur detector has been set to simulation mode")
+                        except Exception as e:
+                            logging.error('Failed to parse simulated flag from options: {}'.format(e))
+                    self.detector = HLExcaliburDetector(fems, simulated)
                 logging.debug('ExcaliburAdapter loaded with {} detector'.format(
                     'raw' if use_raw else 'high-level'
                 ))
@@ -117,7 +125,7 @@ class ExcaliburAdapter(ApiAdapter):
             response = {'error': str(e)}
             logging.error(e)
             status_code = 400
-            
+
         return ApiAdapterResponse(response, status_code=status_code)
 
     @request_types('application/json')
@@ -147,7 +155,7 @@ class ExcaliburAdapter(ApiAdapter):
             response = {'error': 'Failed to decode PUT request body: {}'.format(str(e))}
             logging.error(e)
             status_code = 400
-            
+
         return ApiAdapterResponse(response, status_code=status_code)
 
     @request_types('application/json')
