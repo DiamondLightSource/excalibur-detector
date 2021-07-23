@@ -22,11 +22,11 @@ namespace FrameProcessor
   ExcaliburProcessPlugin::ExcaliburProcessPlugin() :
       asic_counter_bit_depth_(Excalibur::bitDepth12),
       asic_counter_bit_depth_str_("12-bit"),
-      image_width_(2048),
-      image_height_(256),
+      image_width_(FEM_PIXELS_PER_CHIP_X * FEM_CHIPS_PER_STRIPE_X),
+      image_height_(FEM_PIXELS_PER_CHIP_Y * FEM_CHIPS_PER_STRIPE_Y),
       image_pixels_(image_width_ * image_height_),
       packets_lost_(0),
-      number_of_fems_(6)
+      number_of_fems_(1)
   {
     // Setup logging for the class
     logger_ = Logger::getLogger("FP.ExcaliburProcessPlugin");
