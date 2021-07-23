@@ -14,7 +14,14 @@ import os
 import re
 
 from excalibur.definitions import ExcaliburDefinitions
-    
+
+class ExcaliburConfigError(Exception):
+    def __init__(self, value):
+        self.value = value
+    def __str__(self):
+        return repr(self.value)
+
+
 class ExcaliburDacConfiguration(OrderedDict):
     
     def __init__(self, fem=0, chip=0):
@@ -204,15 +211,27 @@ class ExcaliburThresholdConfigParser(object):
         self._expected_size = expected_size
         self._gains = []
         self._offsets = []
+        self._file_valid = False
 
         try:
             with open(config_file) as config_fp:
                 self._gains.extend([float(val) for val in config_fp.readline().strip().split(' ')])
                 self._offsets.extend([float(val) for val in config_fp.readline().strip().split(' ')])
+                self._file_valid = True
         except Exception as e:
-            self._gains = None
-            self._offsets = None
-            logging.debug('Unable to parse threshold file: {}'.format(e))
+            if config_file.split('/')[-1] == 'threshold0':
+                # This is bad as we require the threshold0 file
+                raise ExcaliburConfigError('Unable to parse threshold0 file: {}'.format(e))
+            else:
+                # Currently it is OK to allow threshold1 files to not exist
+                # However log this fact
+                self._gains = None
+                self._offsets = None
+                logging.info('Unable to parse threshold file: {}'.format(e))
+
+    @property
+    def valid(self):
+        return self._file_valid
 
     @property
     def gains(self):

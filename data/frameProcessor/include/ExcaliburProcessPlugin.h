@@ -12,6 +12,7 @@ x * ExcaliburProcessPlugin.h
 #include <log4cxx/basicconfigurator.h>
 #include <log4cxx/propertyconfigurator.h>
 #include <log4cxx/helpers/exception.h>
+#include <vector>
 using namespace log4cxx;
 using namespace log4cxx::helpers;
 
@@ -108,6 +109,9 @@ namespace FrameProcessor
     int image_pixels_;
     /** Packet loss counter **/
     int packets_lost_;
+    std::vector<int> fem_packets_lost_;
+    /** Number of FEMS in last frame **/
+    int number_of_fems_;
   };
 
   /**
