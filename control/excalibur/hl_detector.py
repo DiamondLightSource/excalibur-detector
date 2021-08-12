@@ -136,6 +136,7 @@ class HLExcaliburDetector(ExcaliburDetector):
         ]
 
     STR_STATUS = 'status'
+    STR_STATUS_POLL_ACTIVE = 'poll_active'
     STR_STATUS_SENSOR = 'sensor'
     STR_STATUS_SENSOR_WIDTH = 'width'
     STR_STATUS_SENSOR_HEIGHT = 'height'
@@ -232,6 +233,10 @@ class HLExcaliburDetector(ExcaliburDetector):
         self._frame_rate = None
         self._acquisition_complete = None
 
+        # Initialise polling variables
+        self._poll_active = True
+        self._poll_timeout = datetime.now()
+
         # Initialise hv and lv enabled status
         self._lv_enabled = 0
         self._lv_check_counter = 2
@@ -324,6 +329,9 @@ class HLExcaliburDetector(ExcaliburDetector):
                     # Meta data here
                 }),
                 self.STR_STATUS_STATE: (self.get_state, {
+                    # Meta data here
+                }),
+                self.STR_STATUS_POLL_ACTIVE: (lambda: self._poll_active, {
                     # Meta data here
                 }),
                 self.STR_STATUS_FEM_STATE: (self.get_fem_state, {
@@ -563,13 +571,13 @@ class HLExcaliburDetector(ExcaliburDetector):
 
     def set_operation_mode(self, value):
         self._operation_mode = value
-    
+
     def get_lfsr_bypass(self):
         return self._lfsr_bypass
 
     def set_lfsr_bypass(self, value):
         self._lfsr_bypass = value
-    
+
     def get_read_write_mode(self):
         return self._read_write_mode
 
@@ -606,7 +614,7 @@ class HLExcaliburDetector(ExcaliburDetector):
     def set_csm_spm_mode(self, value):
         self._csm_spm_mode = value
         self._calibration_required = True
-    
+
     def get_colour_mode(self):
         return self._colour_mode
 
@@ -1063,7 +1071,7 @@ class HLExcaliburDetector(ExcaliburDetector):
 
     def get_chip_ids(self, fem_id):
         # Return either the default chip IDs or reversed chip IDs depending on the FEM
-        # ID.  TODO: 
+        # ID.  TODO:
         chip_ids = ExcaliburDefinitions.FEM_DEFAULT_CHIP_IDS
         if fem_id & 1 != 1:
             chip_ids = reversed(chip_ids)
@@ -1216,7 +1224,7 @@ class HLExcaliburDetector(ExcaliburDetector):
 
         with self._comms_lock:
             self.hl_write_params(pixel_params)
-        
+
             time.sleep(1.0)
 
             # Send the command to load the pixel configuration
@@ -1225,6 +1233,15 @@ class HLExcaliburDetector(ExcaliburDetector):
 
         for fem in self._fems:
             self.set_calibration_status(fem, 1, 'disch')
+
+    def deactivate_polling(self):
+        logging.info("Deactivating polling now")
+        self._poll_active = False
+        self._poll_timeout = datetime.now()
+
+    def activate_polling(self):
+        logging.info("Activating polling now")
+        self._poll_active = True
 
     def status_loop(self):
         # Status loop has two polling rates, fast and slow
@@ -1246,12 +1263,19 @@ class HLExcaliburDetector(ExcaliburDetector):
                         self.update_calibration(self.STR_STATUS_LV_ENABLED, '1')
                     except:
                         pass
-            if (datetime.now() - self._slow_update_time).seconds > 10.0:
-                self._slow_update_time = datetime.now()
-                self.slow_read()
-            if (datetime.now() - self._medium_update_time).seconds > 10.0:
-                self._medium_update_time = datetime.now()
-                self.power_card_read()
+            if self._poll_active:
+                if (datetime.now() - self._slow_update_time).seconds > 10.0:
+                    self._slow_update_time = datetime.now()
+                    self.slow_read()
+                if (datetime.now() - self._medium_update_time).seconds > 10.0:
+                    self._medium_update_time = datetime.now()
+                    self.power_card_read()
+            else:
+                # Check for the poll disable timeout
+                if (datetime.now() - self._poll_timeout).total_seconds() > 60.0:
+                    logging.info("Polling disable timed out, reactivating")
+                    self._poll_active = True
+                    self._poll_timeout = datetime.now()
             if (datetime.now() - self._fast_update_time).microseconds > 100000:
                 self._fast_update_time = datetime.now()
                 self.fast_read()
@@ -1322,6 +1346,10 @@ class HLExcaliburDetector(ExcaliburDetector):
                 response = {'value': 1}
             elif path == 'command/configure_mask':
                 response = {'value': 1}
+            elif path == 'command/pause_polling':
+                response = {'value': 1}
+            elif path == 'command/continue_polling':
+                response = {'value': 1}
             else:
                 try:
                     logging.debug("Searching for '%s': %s", path, self._tree_status.get(path, True))
@@ -1339,8 +1367,13 @@ class HLExcaliburDetector(ExcaliburDetector):
             if path == 'command/start_acquisition':
                 # Starting an acquisition!
                 logging.debug('Start acquisition has been called')
+                self._poll_timeout = datetime.now()
                 self.hl_arm_detector()
                 self.do_acquisition()
+            elif path == 'command/pause_polling':
+                self.deactivate_polling()
+            elif path == 'command/continue_polling':
+                self.activate_polling()
             elif path == 'command/stop_acquisition':
                 # Starting an acquisition!
                 logging.debug('Abort acquisition has been called')
@@ -1486,7 +1519,7 @@ class HLExcaliburDetector(ExcaliburDetector):
                             # Here we have detected a possible loss of connection
                             logging.error("Connection to hardware lost in power_card_read method")
                             self.connection_lost()
-        
+
         with self._param_lock:
             # Check for the current HV enabled state
             hv_enabled = 0
@@ -2011,7 +2044,7 @@ class HLExcaliburDetector(ExcaliburDetector):
         else:
             response_status = -1
             logging.error("No EFUSE ID root directory supplied")
-        
+
         logging.debug("EFUSE: %s", efuse_dict)
         return response_status, efuse_dict
 
