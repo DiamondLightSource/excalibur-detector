@@ -22,11 +22,11 @@ namespace FrameProcessor
   ExcaliburProcessPlugin::ExcaliburProcessPlugin() :
       asic_counter_bit_depth_(Excalibur::bitDepth12),
       asic_counter_bit_depth_str_("12-bit"),
-      image_width_(2048),
-      image_height_(256),
+      image_width_(FEM_PIXELS_PER_CHIP_X * FEM_CHIPS_PER_STRIPE_X),
+      image_height_(FEM_PIXELS_PER_CHIP_Y * FEM_CHIPS_PER_STRIPE_Y),
       image_pixels_(image_width_ * image_height_),
       packets_lost_(0),
-      number_of_fems_(6)
+      number_of_fems_(1)
   {
     // Setup logging for the class
     logger_ = Logger::getLogger("FP.ExcaliburProcessPlugin");
@@ -45,9 +45,9 @@ namespace FrameProcessor
 
   /**
    * Get the plugin major version number.
-   * 
+   *
    * \return major version number as an integer
-   */ 
+   */
   int ExcaliburProcessPlugin::get_version_major()
   {
     return ODIN_DATA_VERSION_MAJOR;
@@ -55,9 +55,9 @@ namespace FrameProcessor
 
   /**
    * Get the plugin minor version number.
-   * 
+   *
    * \return minor version number as an integer
-   */ 
+   */
   int ExcaliburProcessPlugin::get_version_minor()
   {
     return ODIN_DATA_VERSION_MINOR;
@@ -65,9 +65,9 @@ namespace FrameProcessor
 
   /**
    * Get the plugin patch version number.
-   * 
+   *
    * \return patch version number as an integer
-   */ 
+   */
   int ExcaliburProcessPlugin::get_version_patch()
   {
     return ODIN_DATA_VERSION_PATCH;
@@ -75,9 +75,9 @@ namespace FrameProcessor
 
   /**
    * Get the plugin short version (e.g. x.y.z) string.
-   * 
+   *
    * \return short version as a string
-   */ 
+   */
   std::string ExcaliburProcessPlugin::get_version_short()
   {
     return ODIN_DATA_VERSION_STR_SHORT;
@@ -85,9 +85,9 @@ namespace FrameProcessor
 
   /**
    * Get the plugin long version (e.g. x.y.z-qualifier) string.
-   * 
+   *
    * \return long version as a string
-   */ 
+   */
   std::string ExcaliburProcessPlugin::get_version_long()
   {
     return ODIN_DATA_VERSION_STR;
@@ -173,7 +173,7 @@ namespace FrameProcessor
   bool ExcaliburProcessPlugin::reset_statistics(void)
   {
     LOG4CXX_DEBUG(logger_, "Statistics reset requested for Excalibur plugin")
-    
+
     // Reset packets lost counter
     packets_lost_ = 0;
     // Re-allocate the fem counter vector
@@ -222,8 +222,8 @@ namespace FrameProcessor
       {
         for (int subframe = 0; subframe < Excalibur::num_subframes[depth]; subframe++)
         {
-          // Get a pointer to frame data 
-          char* packet_ptr = static_cast<char *>(frame->get_data_ptr()) 
+          // Get a pointer to frame data
+          char* packet_ptr = static_cast<char *>(frame->get_data_ptr())
             + sizeof(Excalibur::FrameHeader);
 
           // Increment by the fem and subframe size

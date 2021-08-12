@@ -128,7 +128,7 @@ class ExcaliburAdapter(ApiAdapter):
             response = {'error': str(e)}
             logging.error(e)
             status_code = 400
-            
+
         return ApiAdapterResponse(response, status_code=status_code)
 
     @request_types('application/json')
@@ -158,7 +158,7 @@ class ExcaliburAdapter(ApiAdapter):
             response = {'error': 'Failed to decode PUT request body: {}'.format(str(e))}
             logging.error(e)
             status_code = 400
-            
+
         return ApiAdapterResponse(response, status_code=status_code)
 
     @request_types('application/json')
