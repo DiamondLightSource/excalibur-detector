@@ -1,2 +1,2 @@
 include versioneer.py
-include excalibur/_version.py
+include src/excalibur_control/_version.py

@@ -1,16 +1,15 @@
-from setuptools import setup, find_packages, Extension
-from setuptools.command.test import test as TestCommand
+import os
+import shlex
+import subprocess
+import sys
+from distutils import log
 from distutils.command.build_ext import build_ext
 from distutils.command.clean import clean
-from distutils import log
 from distutils.errors import LibError
-import versioneer
 
-import os
-import glob
-import sys
-import subprocess
-import shlex
+from setuptools import Extension, setup
+
+import versioneer
 
 # Extract the stub-only argument from the command line if present
 stub_only = False
@@ -19,7 +18,7 @@ if "--stub-only" in sys.argv:
     sys.argv.remove("--stub-only")
 
 # Define the stub fem_api extension modules
-fem_api_extension_path = "fem_api_extension"
+fem_api_extension_path = "src/fem_api_extension"
 fem_api_wrapper_source = os.path.join(fem_api_extension_path, "fem_api_wrapper.c")
 
 fem_api_stub_source_path = os.path.join(fem_api_extension_path, "api_stub")
@@ -29,7 +28,7 @@ fem_api_stub_sources = [fem_api_wrapper_source] + [
 ]
 
 fem_api_stub = Extension(
-    "excalibur.fem_api_stub",
+    "excalibur_control.fem_api_stub",
     sources=fem_api_stub_sources,
     include_dirs=[fem_api_stub_source_path],
     define_macros=[("COMPILE_AS_STUB", None)],
@@ -48,7 +47,7 @@ if not stub_only:
     fem_api_sources = [fem_api_wrapper_source]
 
     fem_api = Extension(
-        "excalibur.fem_api",
+        "excalibur_control.fem_api",
         sources=fem_api_sources,
         include_dirs=[fem_api_include_path],
         library_dirs=[],
@@ -187,72 +186,12 @@ class ExcaliburClean(clean):
         clean.run(self)
 
 
-class ExcaliburTest(TestCommand):
-    """
-    Class to test the package using nose correctly.
-
-    Based on description at http://bit.ly/2IRKDE6
-    """
-
-    def finalize_options(self):
-        """
-        Finalize command options.
-        """
-
-        TestCommand.finalize_options(self)
-        self.test_args = []
-        self.test_suite = True
-
-    def run_tests(self):
-        """
-        Run the test suite using nose.
-        """
-        import nose
-
-        nose.run_exit(argv=["nosetests"])
-
-
-# Build the command class for setup, merging in versioneer, build, clean and test commands
+# Build the command class for setup, merging in versioneer, build and clean commands
 merged_cmdclass = versioneer.get_cmdclass()
-merged_cmdclass.update(
-    {
-        "build_ext": ExcaliburBuildExt,
-        "clean": ExcaliburClean,
-        "test": ExcaliburTest,
-    }
-)
-
-# Define the required odin-control package version
-required_odin_version = "0.3.1"
-
-# Define installation requirements based on odin version
-install_requires = ["odin=={:s}".format(required_odin_version)]
-
-# Define installation requirements based on odin version
-dependency_links = [
-    "https://github.com/odin-detector/odin-control/zipball/{0}#egg=odin-{0}".format(
-        required_odin_version
-    )
-]
-
-tests_require = ["nose", "coverage", "mock", "configparser"]
+merged_cmdclass.update({"build_ext": ExcaliburBuildExt, "clean": ExcaliburClean})
 
 setup(
-    name="excalibur",
     version=versioneer.get_version(),
     cmdclass=merged_cmdclass,
-    description="EXCALIBUR detector plugins for ODIN control and data frameworks",
-    url="https://github.com/dls-controls/excalibur-detector",
-    author="Tim Nicholls",
-    author_email="tim.nicholls@stfc.ac.uk",
     ext_modules=fem_ext_modules,
-    packages=find_packages(),
-    install_requires=install_requires,
-    dependency_links=dependency_links,
-    tests_require=tests_require,
-    entry_points={
-        "console_scripts": [
-            "excalibur_test_app  = excalibur.client.test_app:main",
-        ]
-    },
 )
