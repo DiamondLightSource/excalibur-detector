@@ -1,1 +1,1 @@
-excalibur/_version.py export-subst
+control/src/excalibur_control/_version.py export-subst
