@@ -1,6 +1,5 @@
 """
 test_adapter.py - test cases for the ExcaliburAdapter API adapter class for the ODIN server
-
 Tim Nicholls, STFC Application Engineering Group
 """
 
@@ -13,9 +12,9 @@ if sys.version_info[0] == 3:  # pragma: no cover
 else:                         # pragma: no cover
     from mock import Mock
 
-from excalibur.adapter import ExcaliburAdapter
-from excalibur.detector import ExcaliburDetectorError
-from excalibur.fem import ExcaliburFem
+from excalibur_detector.adapter import ExcaliburAdapter
+from excalibur_detector.detector import ExcaliburDetectorError
+from excalibur_detector.fem import ExcaliburFem
 
 class ExcaliburAdapterFixture(object):
 

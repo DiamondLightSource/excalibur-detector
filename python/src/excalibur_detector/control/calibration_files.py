@@ -6,8 +6,9 @@ import logging
 from io import StringIO
 from collections import OrderedDict
 from configparser import SafeConfigParser
-from excalibur.definitions import ExcaliburDefinitions
-from excalibur.config_parser import ExcaliburDacConfigParser, ExcaliburPixelConfigParser, ExcaliburThresholdConfigParser
+
+from excalibur_detector.control.definitions import ExcaliburDefinitions
+from excalibur_detector.control.config_parser import ExcaliburDacConfigParser, ExcaliburPixelConfigParser, ExcaliburThresholdConfigParser
 
 
 class CalibrationError(Exception):

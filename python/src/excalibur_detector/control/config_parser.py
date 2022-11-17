@@ -1,6 +1,5 @@
 '''
 Created on Apr 3 2017
-
 @author= tcn45
 '''
 
@@ -10,10 +9,9 @@ try:
 except:
     from six.moves import configparser
 import logging
-import os
-import re
 
-from excalibur.definitions import ExcaliburDefinitions
+
+from excalibur_detector.control.definitions import ExcaliburDefinitions
 
 class ExcaliburConfigError(Exception):
     def __init__(self, value):

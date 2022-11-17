@@ -18,7 +18,7 @@ if "--stub-only" in sys.argv:
     sys.argv.remove("--stub-only")
 
 # Define the stub fem_api extension modules
-fem_api_extension_path = "src/fem_api_extension"
+fem_api_extension_path = "src/excalibur_detector/control/fem_api_extension"
 fem_api_wrapper_source = os.path.join(fem_api_extension_path, "fem_api_wrapper.c")
 
 fem_api_stub_source_path = os.path.join(fem_api_extension_path, "api_stub")
@@ -28,7 +28,7 @@ fem_api_stub_sources = [fem_api_wrapper_source] + [
 ]
 
 fem_api_stub = Extension(
-    "excalibur_control.fem_api_stub",
+    "excalibur_detector.control.fem_api_stub",
     sources=fem_api_stub_sources,
     include_dirs=[fem_api_stub_source_path],
     define_macros=[("COMPILE_AS_STUB", None)],
@@ -47,7 +47,7 @@ if not stub_only:
     fem_api_sources = [fem_api_wrapper_source]
 
     fem_api = Extension(
-        "excalibur_control.fem_api",
+        "excalibur_detector.control.fem_api",
         sources=fem_api_sources,
         include_dirs=[fem_api_include_path],
         library_dirs=[],

@@ -1,14 +1,13 @@
 """
 Test cases for the ExcaliburDetector class of the ODIN server EXCALIBUR plugin
-
 Tim Nicholls, STFC Application Engineering Group
 """
 
 from nose.tools import *
 import logging
 
-from excalibur.detector import ExcaliburDetector, ExcaliburDetectorError
-from excalibur.fem import ExcaliburFem
+from excalibur_detector.detector import ExcaliburDetector, ExcaliburDetectorError
+from excalibur_detector.fem import ExcaliburFem
 
 class TestExcaliburDetector():
 

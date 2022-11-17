@@ -15,7 +15,7 @@ class ExcaliburFemError(Exception):
 class ExcaliburFem(object):
 
     use_stub_api = False
-    api_stem = 'excalibur.fem_api'
+    api_stem = 'excalibur_detector.control.fem_api'
     _fem_api = None
 
     def __init__(self, fem_id, fem_address, fem_port, data_address, timeout_ms=10000):

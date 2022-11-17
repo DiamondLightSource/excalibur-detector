@@ -1,6 +1,5 @@
 """
 test_plugin.py - end-to-end testing of the EXCALIBUR plugin in an ODIN server instance
-
 Tim Nicholls, STFC Application Engineering Group
 """
 
@@ -10,8 +9,8 @@ import requests
 import json
 
 from odin.testing.utils import OdinTestServer
-from excalibur.fem import ExcaliburFem
-from excalibur.adapter import ExcaliburAdapter
+from excalibur_detector.fem import ExcaliburFem
+from excalibur_detector.adapter import ExcaliburAdapter
 
 class TestExcaliburPlugin(OdinTestServer):
 

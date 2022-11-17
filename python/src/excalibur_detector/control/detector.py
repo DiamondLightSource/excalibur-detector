@@ -10,8 +10,9 @@ from tornado.concurrent import run_on_executor
 from concurrent import futures
 
 from odin.adapters.parameter_tree import ParameterTree, ParameterTreeError
-from excalibur.fem import ExcaliburFem, ExcaliburFemError
-from excalibur.parameter import *
+
+from excalibur_detector.control.fem import ExcaliburFem, ExcaliburFemError
+from excalibur_detector.control.parameter import *
 
 class ExcaliburDetectorError(Exception):
     """Simple exception class for ExcaliburDetector."""

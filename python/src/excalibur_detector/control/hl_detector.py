@@ -17,16 +17,16 @@ if is_py2:
 else:
     import queue as queue
 
-from excalibur.detector import ExcaliburDetector, ExcaliburDetectorError
-from excalibur.detector_sim import ExcaliburSimulator
-from excalibur.calibration_files import DetectorCalibration
-from excalibur.definitions import ExcaliburDefinitions
-from excalibur.efuse_id_parser import ExcaliburEfuseIDParser
-from excalibur.fem import ExcaliburFem
 from odin.adapters.parameter_tree import ParameterAccessor, ParameterTree
 from enum import Enum
 from collections import OrderedDict
 
+from excalibur_detector.control.detector import ExcaliburDetector, ExcaliburDetectorError
+from excalibur_detector.control.detector_sim import ExcaliburSimulator
+from excalibur_detector.control.calibration_files import DetectorCalibration
+from excalibur_detector.control.definitions import ExcaliburDefinitions
+from excalibur_detector.control.efuse_id_parser import ExcaliburEfuseIDParser
+from excalibur_detector.control.fem import ExcaliburFem
 
 
 class ExcaliburParameter(OrderedDict):

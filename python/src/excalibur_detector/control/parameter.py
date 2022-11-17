@@ -1,12 +1,11 @@
 '''
 Created on Mar 21, 2017
-
 @author: tcn45
 '''
 
 from collections import OrderedDict
 
-from .fem_api_parameters import *
+from excalibur_detector.control.fem_api_parameters import *
 
 FEM_RTN_INTERNALERROR = -1
 FEM_RTN_CONNECTION_CLOSED = 10000

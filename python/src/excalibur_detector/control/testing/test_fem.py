@@ -2,9 +2,8 @@ from nose.tools import *
 import random
 import sys
 
-#from excalibur.fem import ExcaliburFemConfig, ExcaliburFem, ExcaliburFemError
-from excalibur.fem import ExcaliburFem, ExcaliburFemError
-from excalibur.parameter import *
+from excalibur_detector.fem import ExcaliburFem, ExcaliburFemError
+from excalibur_detector.parameter import *
 
 class TestExcaliburFemError:
 

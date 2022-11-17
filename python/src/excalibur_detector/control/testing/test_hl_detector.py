@@ -8,8 +8,8 @@ from nose.tools import *
 import logging
 from mock import Mock
 
-from excalibur.hl_detector import HLExcaliburDetector, ExcaliburParameter
-from excalibur.fem import ExcaliburFem
+from excalibur_detector.hl_detector import HLExcaliburDetector, ExcaliburParameter
+from excalibur_detector.fem import ExcaliburFem
 
 
 class TestExcaliburDetector():
