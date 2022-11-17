@@ -2,9 +2,9 @@ from nose.tools import *
 import random
 import sys
 
-#from excalibur.fem import ExcaliburFemConfig, ExcaliburFem, ExcaliburFemError
-from excalibur.fem import ExcaliburFem, ExcaliburFemError
-from excalibur.parameter import *
+#from excalibur_detector.fem import ExcaliburFemConfig, ExcaliburFem, ExcaliburFemError
+from excalibur_detector.fem import ExcaliburFem, ExcaliburFemError
+from excalibur_detector.parameter import *
 
 class TestExcaliburFemError:
 
@@ -27,7 +27,7 @@ class TestExcaliburMissingApiLibrary:
         cls.restore_fem_api_stem = ExcaliburFem.api_stem
         ExcaliburFem.api_stem = 'fem_api_missing'
         ExcaliburFem.use_stub_api = False
-        
+
         # Unload any previously loaded API module, to ensure we use the correct stub version for this test class
         if ExcaliburFem._fem_api is not None:
             del sys.modules[ExcaliburFem._fem_api.__name__]
@@ -61,7 +61,7 @@ class TestExcaliburFem:
         if ExcaliburFem._fem_api is not None:
             del sys.modules[ExcaliburFem._fem_api.__name__]
             ExcaliburFem._fem_api = None
-            
+
         cls.the_fem = ExcaliburFem(
             cls.fem_id, cls.fem_address, cls.fem_port, cls.data_address
         )
@@ -165,17 +165,17 @@ class TestExcaliburFem:
         (rc, values_out) = self.the_fem.get_int(chip_id, param_id, param_len)
         assert_equal(rc, FEM_RTN_OK)
         assert_equal(values_in, values_out)
-        
+
     def test_legal_set_string(self):
-        
+
         chip_id = 0
         param_id = 1000
         offset = 0
         values = [u"these", u"are", u"strings"]
-        
+
         rc = self.the_fem.set_string(chip_id, param_id, offset, values)
         assert_equal(rc, FEM_RTN_OK)
-        
+
     def test_legal_cmd(self):
 
         chip_id = 0

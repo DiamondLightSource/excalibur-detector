@@ -15,7 +15,7 @@ class ExcaliburFemError(Exception):
 class ExcaliburFem(object):
 
     use_stub_api = False
-    api_stem = 'excalibur.fem_api'
+    api_stem = 'excalibur_detector.control.fem_api'
     _fem_api = None
 
     def __init__(self, fem_id, fem_address, fem_port, data_address, timeout_ms=10000):
@@ -48,9 +48,9 @@ class ExcaliburFem(object):
             self._fem_api.close(self.fem_handle)
         except self._fem_api.error as e:
             raise ExcaliburFemError(str(e))
-        
+
     def set_api_trace(self, trace):
-        
+
         try:
             self._fem_api.set_api_trace(self.fem_handle, int(trace))
         except self._fem_api.error as e:
@@ -82,7 +82,7 @@ class ExcaliburFem(object):
             raise ExcaliburFemError(str(e))
 
         return rc
- 
+
     def get_short(self, chip_id, param_id, size):
 
         try:
@@ -100,16 +100,16 @@ class ExcaliburFem(object):
             raise ExcaliburFemError(str(e))
 
         return rc
-       
+
     def get_float(self, chip_id, param_id, size):
-        
+
         try:
             (rc, values) = self._fem_api.get_float(self.fem_handle, chip_id, param_id, size)
         except self._fem_api.error as e:
             raise ExcaliburFemError(str(e))
         except Exception as e:
             raise ExcaliburFemError(e)
-        
+
         return (rc, values)
 
     def set_float(self, chip_id, param_id, offset, values):
@@ -129,7 +129,7 @@ class ExcaliburFem(object):
             raise ExcaliburFemError(str(e))
 
         return rc
-    
+
     def cmd(self, chip_id, cmd_id):
 
         try:
@@ -140,7 +140,7 @@ class ExcaliburFem(object):
         return rc
 
     def get_error_msg(self):
-        
+
         try:
             error_msg = self._fem_api.get_error_msg(self.fem_handle)
         except self._fem_api_error as e:

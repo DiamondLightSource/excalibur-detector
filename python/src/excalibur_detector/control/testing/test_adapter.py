@@ -13,9 +13,9 @@ if sys.version_info[0] == 3:  # pragma: no cover
 else:                         # pragma: no cover
     from mock import Mock
 
-from excalibur.adapter import ExcaliburAdapter
-from excalibur.detector import ExcaliburDetectorError
-from excalibur.fem import ExcaliburFem
+from excalibur_detector.adapter import ExcaliburAdapter
+from excalibur_detector.detector import ExcaliburDetectorError
+from excalibur_detector.fem import ExcaliburFem
 
 class ExcaliburAdapterFixture(object):
 
@@ -62,7 +62,7 @@ class TestExcaliburAdapter(ExcaliburAdapterFixture):
         }
         adapter = ExcaliburAdapter(**adapter_params)
         assert_equal(adapter.detector.powercard_fem_idx, None)
-        
+
     def test_adapter_bad_chip_mask(self):
         adapter_params = {
             'detector_fems': '192.168.0.1:6969, 192.168.0.2:6969',
@@ -70,7 +70,7 @@ class TestExcaliburAdapter(ExcaliburAdapterFixture):
         }
         adapter = ExcaliburAdapter(**adapter_params)
         assert_equal(adapter.detector.chip_enable_mask, None)
-        
+
     def test_adapter_get(self):
         response = self.adapter.get(self.path, self.request)
         assert_true(isinstance(response.data, dict))
@@ -86,14 +86,14 @@ class TestExcaliburAdapter(ExcaliburAdapterFixture):
         adapter.detector.get.side_effect = ExcaliburDetectorError('detector error')
         response = adapter.get(self.path, self.request)
         assert_equal(response.status_code, 400)
-        
-    def test_adapter_put(self):     
+
+    def test_adapter_put(self):
         self.request.body = json.dumps({'connect': {'state': True}})
         put_path = 'command'
         response = self.adapter.put(put_path, self.request)
         assert_true(isinstance(response.data, dict))
         assert_equal(response.status_code, 200)
-        
+
     def test_adapter_put_raises_400(self):
         adapter_params = {
             'detector_fems': '192.168.0.1:6969, 192.168.0.2:6969',

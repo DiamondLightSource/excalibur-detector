@@ -10,8 +10,8 @@ import requests
 import json
 
 from odin.testing.utils import OdinTestServer
-from excalibur.fem import ExcaliburFem
-from excalibur.adapter import ExcaliburAdapter
+from excalibur_detector.fem import ExcaliburFem
+from excalibur_detector.adapter import ExcaliburAdapter
 
 class TestExcaliburPlugin(OdinTestServer):
 
@@ -41,7 +41,7 @@ class TestExcaliburPlugin(OdinTestServer):
             self.build_url('excalibur/status/fem'),
             headers=self.json_request_headers
         )
-        
+
         assert_equal(result.status_code, 200)
         assert_true('fem' in result.json())
 

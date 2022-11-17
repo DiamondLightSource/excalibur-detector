@@ -8,8 +8,9 @@ import logging
 import re
 from tornado.escape import json_decode
 from odin.adapters.adapter import ApiAdapter, ApiAdapterResponse, request_types, response_types
-from excalibur.detector import ExcaliburDetector, ExcaliburDetectorError
-from excalibur.hl_detector import HLExcaliburDetector
+
+from excalibur_detector.control.detector import ExcaliburDetector, ExcaliburDetectorError
+from excalibur_detector.control.hl_detector import HLExcaliburDetector
 
 
 def require_valid_detector(func):

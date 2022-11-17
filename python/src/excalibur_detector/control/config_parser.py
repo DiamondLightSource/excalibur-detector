@@ -13,7 +13,7 @@ import logging
 import os
 import re
 
-from excalibur.definitions import ExcaliburDefinitions
+from excalibur_detector.control.definitions import ExcaliburDefinitions
 
 class ExcaliburConfigError(Exception):
     def __init__(self, value):
@@ -23,14 +23,14 @@ class ExcaliburConfigError(Exception):
 
 
 class ExcaliburDacConfiguration(OrderedDict):
-    
+
     def __init__(self, fem=0, chip=0):
-        
+
         super(ExcaliburDacConfiguration, self).__init__()
-    
+
         self.fem = 0
         self.chip = 0
-        self['Threshold0'] = 128 
+        self['Threshold0'] = 128
         self['Threshold1'] = 0
         self['Threshold2'] = 0
         self['Threshold3'] = 0
@@ -57,12 +57,12 @@ class ExcaliburDacConfiguration(OrderedDict):
         self['Cas'] = 170
         self['TPREFA'] = 417
         self['TPREFB'] = 417
-        
-        
+
+
 class ExcaliburDacConfigIniParser(object):
-    
+
     def __init__(self, config, fem, chips):
-        
+
         self.dac_param_transforms = {
             'DiscL' : 'DACDiscL',
             'DiscH' : 'DACDiscH',
@@ -70,9 +70,9 @@ class ExcaliburDacConfigIniParser(object):
             'TPBufferIn' : 'TPBuffIn',
             'TPBufferOut': 'TPBuffOut',
         }
-        
+
         parser = configparser.SafeConfigParser()
-        
+
         try:
             with open(config) as fp:
                 parser.readfp(fp)
@@ -84,13 +84,13 @@ class ExcaliburDacConfigIniParser(object):
             self._chips = range(1,8+1)
         else:
             self._chips = chips
-            
-        self._dacs = [] 
+
+        self._dacs = []
 
         for (idx, chip) in enumerate(self._chips):
 
             self._dacs.append(ExcaliburDacConfiguration(fem, chip))
-            
+
             chip_section = 'CHIP{}'.format(chip)
             for dac in self._dacs[idx]:
                 if dac in self.dac_param_transforms:
@@ -103,28 +103,28 @@ class ExcaliburDacConfigIniParser(object):
     @property
     def dacs(self):
         return self._dacs
-    
+
     @property
     def chips(self):
         return self._chips
-                           
+
 class ExcaliburDacConfigParser(object):
-    
+
     #dac_format_ext = ['.dacs']
     #hdf_format_ext = ['.h5', '.hdf', '.hdf5']
-    
+
     def __init__(self, configs=None, fems=[0], chips=[0]):
-        
+
         self._dacs =  [[ExcaliburDacConfiguration()]]
         self.fems = fems
         self.chips = chips
-        
+
         if configs is None or configs == []:
-            
+
             logging.debug('No/empty list of configuration files specified, using defaults')
 
         else:
-            
+
             #file_exts = [os.path.splitext(config)[1] for config in configs]
             #num_dac_format_configs = sum([ext in self.dac_format_ext for ext in file_exts])
             #num_hdf_format_configs = sum([ext in self.hdf_format_ext for ext in file_exts])
@@ -147,14 +147,14 @@ class ExcaliburDacConfigParser(object):
                 self._dacs = [ExcaliburDacConfigIniParser(config, fem, chips) for (config, fem) in zip(configs, fems)]
             #else:
             #    logging.debug('Parsing of HDF format DAC configuration files not yet supported, using defaults')
-                
+
     def dacs(self, fem, chip):
-        
+
         if self.fems == [0]:
             fem_idx = 0
         else:
             fem_idx = self.fems.index(fem)
-            
+
         if self.chips == [0]:
             chip_idx = self._dacs[fem_idx].chips.index(chip)
         else:
@@ -176,18 +176,18 @@ class ExcaliburDacConfigParser(object):
         self._dacs[fem_idx].dacs[chip_idx][param] = value
 
     def dac_api_params(self):
-        
+
         for dac_name in ExcaliburDacConfiguration():
             dac_param = 'mpx3_{}dac'.format(dac_name.lower())
             yield dac_name, dac_param
-            
-            
+
+
 class ExcaliburPixelConfigParser(object):
-    
+
     def __init__(self, config_file, expected_size=ExcaliburDefinitions.FEM_PIXELS_PER_CHIP):
-        
+
         self._pixels = None
-        self.expected_size = expected_size    
+        self.expected_size = expected_size
 
         self._pixels = []
         try:
