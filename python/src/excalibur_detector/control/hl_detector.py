@@ -1303,7 +1303,7 @@ class HLExcaliburDetector(ExcaliburDetector):
     def execute_command(self, command):
         path = command['path']
         data = command['data']
-        if isinstance(data, unicode):
+        if is_py2 and isinstance(data, str):
             data = data.encode("utf-8")
         try:
             try:
