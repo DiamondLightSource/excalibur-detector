@@ -8,6 +8,7 @@
 #include "FemClient.h"
 #include "FemDataReceiver.h"
 #include "FemLogger.h"
+#include <boost/array.hpp>
 #include <time.h>
 
 #ifdef SCRATCH_BUFFER
