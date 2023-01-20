@@ -786,7 +786,7 @@ class HLExcaliburDetector(ExcaliburDetector):
 
         for param_block in self.POWERCARD_PARAMS:
             for param in param_block:
-                self._powercard_status[param] = [None]
+                self._powercard_status[param] = None
                 powercard_dict[param] = (lambda p=param:self.get_powercard_status(p), {
                         # Meta data here
                     })
@@ -1524,7 +1524,8 @@ class HLExcaliburDetector(ExcaliburDetector):
             # Check for the current HV enabled state
             hv_enabled = 0
             # Greater than hv_bias means the HV is enabled
-            if self._powercard_status['pwr_bias_vmon'] > self._hv_bias - 5.0:
+            vmon = self._powercard_status['pwr_bias_vmon']
+            if vmon is not None and vmon > self._hv_bias - 5.0:
                 hv_enabled = 1
             self._powercard_status[self.STR_STATUS_POWERCARD_HV_ENABLED] = hv_enabled
             logging.debug("Power card update status: %s", self._powercard_status)
