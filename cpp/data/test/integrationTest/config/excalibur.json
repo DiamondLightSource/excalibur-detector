@@ -2,49 +2,46 @@
     "Main": {
         "receiver": {
             "process": true,
-            "command": "${ODIN_PREFIX}\/bin\/frameReceiver",
+            "command": "${CMAKE_INSTALL_PREFIX}/bin/frameReceiver",
             "pos-args": "",
             "sleep": "1"
         },
         "processor": {
             "process": true,
-            "command": "${ODIN_PREFIX}\/bin\/frameProcessor",
+            "command": "${CMAKE_INSTALL_PREFIX}/bin/frameProcessor",
             "pos-args": "",
             "sleep": "1"
         },
         "simulator": {
             "process": false,
-            "command": "${ODIN_PREFIX}\/bin\/frameSimulator",
+            "command": "${CMAKE_INSTALL_PREFIX}/bin/frameSimulator",
             "pos-args": "Excalibur",
-            "sleep": 120
+            "sleep": 10
         },
         "test": {
             "process": false,
-            "command": "${ODIN_PREFIX}\/bin\/frameTests",
+            "command": "${CMAKE_INSTALL_PREFIX}/bin/frameTests --log_level=all -- ",
             "pos-args": "",
             "sleep": 1
         }
     },
-    "simulator":
-    {
-        "lib-path": "${INSTALL_PREFIX}\/lib",
+    "simulator": {
+        "lib-path": "${CMAKE_INSTALL_PREFIX}/lib",
         "frames": "10",
         "dest-ip": "127.0.0.1",
         "ports": "61649",
-        "interval": "1"
+        "interval": "1",
+        "packet-gap": 10
     },
-    "receiver":
-    {
-        "json_file": "${INSTALL_PREFIX}\/test_config\/excalibur-fr.json",
-        "m": "500000000"
+    "receiver": {
+        "json_file": "${CMAKE_INSTALL_PREFIX}/test_config/excalibur-fr.json",
+        "m": "500000000",
+        "frames": 10
     },
-    "processor":
-    {
-        "json_file": "${INSTALL_PREFIX}\/test_config\/excalibur-fp.json"
+    "processor": {
+        "json_file": "${CMAKE_INSTALL_PREFIX}/test_config/excalibur-fp.json"
     },
-    "test":
-    {
-        "json": "${INSTALL_PREFIX}\/test_config\/test.json",
-        "log_level": "ALL"
+    "test": {
+        "json": "${CMAKE_INSTALL_PREFIX}/test_config/test.json"
     }
 }
