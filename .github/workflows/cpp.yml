@@ -1,0 +1,43 @@
+name: C++ CI
+on: [push, pull_request]
+
+env:
+  INSTALL_PREFIX: ${{ github.workspace }}/prefix
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: |
+          sudo apt -y update
+          sudo apt install cmake
+          sudo apt install libboost-dev libboost-date-time-dev libboost-filesystem-dev libboost-program-options-dev libboost-regex-dev libboost-system-dev libboost-test-dev libboost-thread-dev
+          sudo apt install libzmq3-dev libpcap-dev liblog4cxx-dev libblosc-dev libhdf5-dev
+
+      - name: Prepare build
+        run: mkdir -p ${INSTALL_PREFIX} && echo "INSTALL_PREFIX is ${INSTALL_PREFIX}"
+
+      - name: Build odin-data
+        run: |
+          git clone https://github.com/odin-detector/odin-data.git && cd odin-data
+          mkdir build && cd build
+          cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} ../cpp
+          make -j8 VERBOSE=1 && make install VERBOSE=1
+          ls -la ${INSTALL_PREFIX}
+          cd ..
+
+      - name: Build excalibur-detector
+        run: |
+          mkdir build && cd build
+          cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} -DODINDATA_ROOT_DIR=${INSTALL_PREFIX} ../cpp
+          make -j8 VERBOSE=1 && make install VERBOSE=1
+          ls -la ${INSTALL_PREFIX}
+
+      - name: Run integration test
+        run: ${INSTALL_PREFIX}/bin/odinDataTest --json=${INSTALL_PREFIX}/test_config/excalibur.json
