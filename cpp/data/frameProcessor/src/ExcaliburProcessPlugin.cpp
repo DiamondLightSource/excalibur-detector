@@ -172,7 +172,7 @@ namespace FrameProcessor
    */
   bool ExcaliburProcessPlugin::reset_statistics(void)
   {
-    LOG4CXX_DEBUG(logger_, "Statistics reset requested for Excalibur plugin")
+    LOG4CXX_DEBUG(logger_, "Statistics reset requested for Excalibur plugin");
 
     // Reset packets lost counter
     packets_lost_ = 0;

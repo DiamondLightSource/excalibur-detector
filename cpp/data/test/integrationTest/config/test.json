@@ -1,14 +1,12 @@
 {
-    "Test":
-    {
-        "output_file": "test_1_000001.h5",
+    "Test": {
+        "output_file": "/tmp/test_1_000000.h5",
         "frames": "10",
         "dimensions": "3",
         "width": "512",
         "height": "2048",
         "dataset": "data",
         "type": "uint16",
-        "data": {
-        }
+        "data": {}
     }
 }
