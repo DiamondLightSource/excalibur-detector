@@ -6,10 +6,10 @@ Tim Nicholls, STFC Application Engineering
 import logging
 import threading
 from functools import partial
-from tornado.concurrent import run_on_executor
 from concurrent import futures
 
 from odin.adapters.parameter_tree import ParameterTree, ParameterTreeError
+from odin.util import run_in_executor
 
 from excalibur_detector.control.fem import ExcaliburFem, ExcaliburFemError
 from excalibur_detector.control.parameter import *
@@ -258,12 +258,11 @@ class ExcaliburDetector(object):
         for idx in range(len(self.fems)):
             self._increment_pending()
             if state:
-                self._connect_fem(idx)
+                run_in_executor(self._fem_thread_pool, self._connect_fem, idx)
             else:
-                self._disconnect_fem(idx)
+                run_in_executor(self._fem_thread_pool, self._disconnect_fem, idx)
 
 
-    @run_on_executor(executor='_fem_thread_pool')
     def _connect_fem(self, idx):
 
         connect_ok = True
@@ -315,7 +314,6 @@ class ExcaliburDetector(object):
 
         self._decrement_pending(connect_ok)
 
-    @run_on_executor(executor='_fem_thread_pool')
     def _disconnect_fem(self, idx):
 
         disconnect_ok = self._do_disconnect(idx)
@@ -378,9 +376,14 @@ class ExcaliburDetector(object):
 
         for idx in fem_idx_list:
             self._increment_pending()
-            self._do_command(idx, chip_ids, *self.fe_cmd_map[cmd_name])
+            run_in_executor(
+                self._fem_thread_pool,
+                self._do_command,
+                idx,
+                chip_ids,
+                *self.fe_cmd_map[cmd_name]
+            )
 
-    @run_on_executor(executor='_fem_thread_pool')
     def _do_command(self, fem_idx, chip_ids, cmd_id, cmd_text, param_err):
 
         logging.debug("FEM {} chip {}: {} command (id={}) in thread {:x}".format(
@@ -452,11 +455,17 @@ class ExcaliburDetector(object):
 
         for (res_idx, fem_idx) in enumerate(fem_idx_list):
             self._increment_pending()
-            self._read_fe_param(fem_idx, attrs['chip'], params, res_idx)
+            run_in_executor(
+                self._fem_thread_pool,
+                self._read_fe_param,
+                fem_idx,
+                attrs['chip'],
+                params,
+                res_idx,
+            )
 
         logging.debug('read_fe_param returning')
 
-    @run_on_executor(executor='_fem_thread_pool')
     def _read_fe_param(self, fem_idx, chips, params, res_idx):
 
         logging.debug("FEM {}: _read_fe_param in thread {:x}".format(self.fems[fem_idx].fem_id, threading.current_thread().ident))
@@ -581,11 +590,16 @@ class ExcaliburDetector(object):
         # Execute write params for all specified FEMs (launched in threads)
         for fem_idx in fem_idx_list:
             self._increment_pending()
+            run_in_executor(
+                self._fem_thread_pool,
+                self._write_fe_param,
+                fem_idx,
+                params_by_fem[fem_idx],
+            )
             self._write_fe_param(fem_idx, params_by_fem[fem_idx])
 
         logging.debug("write_fe_param returning")
 
-    @run_on_executor(executor='_fem_thread_pool')
     def _write_fe_param(self, fem_idx, params):
 
         logging.debug("FEM {}: _write_fe_param in thread {:x}".format(self.fems[fem_idx].fem_id, threading.current_thread().ident))

@@ -1,0 +1,23 @@
+name: Python CI
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: |
+          sudo apt -y update
+          sudo apt install libboost-dev libboost-date-time-dev libboost-filesystem-dev libboost-program-options-dev libboost-regex-dev libboost-system-dev libboost-test-dev libboost-thread-dev
+
+      - name: Install excalibur-detector
+        run: |
+          python3 -m venv venv && source venv/bin/activate && pip install --upgrade pip
+          cd python
+          pip install .
+          python -c "from excalibur_detector import __version__; print(__version__)"
