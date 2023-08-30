@@ -596,7 +596,6 @@ class ExcaliburDetector(object):
                 fem_idx,
                 params_by_fem[fem_idx],
             )
-            self._write_fe_param(fem_idx, params_by_fem[fem_idx])
 
         logging.debug("write_fe_param returning")
 
