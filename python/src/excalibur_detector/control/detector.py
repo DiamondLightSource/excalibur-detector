@@ -529,7 +529,7 @@ class ExcaliburDetector(object):
 
     def write_fe_param(self, params):
 
-        logging.debug("In write_fe_param with params {:50.50} thread id {}".format(params, threading.current_thread().ident))
+        logging.debug("In write_fe_param with params {} thread id {}".format(params, threading.current_thread().ident))
 
         self.command_succeeded = True
         self.fe_param_write = []
