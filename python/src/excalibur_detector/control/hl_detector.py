@@ -205,7 +205,7 @@ class HLExcaliburDetector(ExcaliburDetector):
 
         self._startup_time = datetime.now()
         self._username = getpass.getuser()
-        self._fems = range(1, len(fem_connections)+1)
+        self._fems = list(range(1, len(fem_connections)+1))
         logging.debug("Fem conection IDs: %s", self._fems)
 
         self._default_status = []
