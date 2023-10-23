@@ -2067,30 +2067,12 @@ class HLExcaliburDetector(ExcaliburDetector):
                             fem = 1
                             for efuse in status['efuseid']:
                                 id_match = 1
-                                efuse_dict['efuseid_c0'].append(efuse[0])
-                                if recorded_efuses[fem][1] != efuse[0]:
-                                    id_match = 0
-                                efuse_dict['efuseid_c1'].append(efuse[1])
-                                if recorded_efuses[fem][2] != efuse[1]:
-                                    id_match = 0
-                                efuse_dict['efuseid_c2'].append(efuse[2])
-                                if recorded_efuses[fem][3] != efuse[2]:
-                                    id_match = 0
-                                efuse_dict['efuseid_c3'].append(efuse[3])
-                                if recorded_efuses[fem][4] != efuse[3]:
-                                    id_match = 0
-                                efuse_dict['efuseid_c4'].append(efuse[4])
-                                if recorded_efuses[fem][5] != efuse[4]:
-                                    id_match = 0
-                                efuse_dict['efuseid_c5'].append(efuse[5])
-                                if recorded_efuses[fem][6] != efuse[5]:
-                                    id_match = 0
-                                efuse_dict['efuseid_c6'].append(efuse[6])
-                                if recorded_efuses[fem][7] != efuse[6]:
-                                    id_match = 0
-                                efuse_dict['efuseid_c7'].append(efuse[7])
-                                if recorded_efuses[fem][8] != efuse[7]:
-                                    id_match = 0
+                                for chip_i in range(len(ExcaliburDefinitions.X_CHIPS_PER_FEM)):
+                                    efuse_dict['efuseid_c{}'.format(chip_i)].append(efuse[chip_i])
+                                    if recorded_efuses[fem][chip_i+1] != efuse[chip_i]:
+                                        self.set_error('Fem {} Chip {} EFuseId mismatch')
+                                        id_match = 0
+                                        
                                 efuse_dict['efuse_match'].append(id_match)
                                 fem += 1
                         break
