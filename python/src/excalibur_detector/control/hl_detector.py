@@ -1132,13 +1132,23 @@ class HLExcaliburDetector(ExcaliburDetector):
             for dac_name, dac_code in ExcaliburDefinitions.FEM_DAC_SENSE_CODES.items():
                 cmd_ok, err_msg, dac_vals = self.readback_specific_dac_voltages(dac_code)
                 logging.debug('Readback voltages for DAC {}: {}'.format(dac_name, dac_vals))
+                min_voltage = ExcaliburDefinitions.FEM_DAC_TARGET_VOLTAGES[dac_name] - ExcaliburDefinitions.FEM_DAC_VOLTAGE_THRESHOLD
+                max_voltage = ExcaliburDefinitions.FEM_DAC_TARGET_VOLTAGES[dac_name] + ExcaliburDefinitions.FEM_DAC_VOLTAGE_THRESHOLD
                 if cmd_ok:
                     with self._param_lock:
                         for chip_i in range(ExcaliburDefinitions.X_CHIPS_PER_FEM):
                             val = []
                             for fem_i in range(len(self._fems)):
-                                # TODO: Fail if value outside threshold
-                                val.append(dac_vals[fem_i][chip_i])
+                                voltage = dac_vals[fem_i][chip_i]
+                                if voltage > max_voltage or voltage < min_voltage:
+                                    self.set_error("Fem {} Chip {} {} DAC at {:.3f}V (Threshold is {}+/-{}V)"\
+                                        .format(self._fems[fem_i],
+                                            ExcaliburDefinitions.FEM_DEFAULT_CHIP_IDS[chip_i], 
+                                            dac_name,
+                                            voltage,
+                                            ExcaliburDefinitions.FEM_DAC_TARGET_VOLTAGES[dac_name],
+                                            ExcaliburDefinitions.FEM_DAC_VOLTAGE_THRESHOLD))
+                                val.append(voltage)
                             self._fem_status['{}dac_c{}'.format(dac_name, chip_i)] = val
 
     def readback_specific_dac_voltages(self, dac_omr_code):
