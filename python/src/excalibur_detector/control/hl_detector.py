@@ -135,6 +135,10 @@ class HLExcaliburDetector(ExcaliburDetector):
         'supply_p2v5_dvdd1'
         ]
 
+    DAC_PARAMS = ['{}dac_c{}'.format(dac, chip) \
+        for chip in range(ExcaliburDefinitions.X_CHIPS_PER_FEM) \
+            for dac in ExcaliburDefinitions.FEM_DAC_SENSE_CODES]
+
     STR_STATUS = 'status'
     STR_STATUS_POLL_ACTIVE = 'poll_active'
     STR_STATUS_SENSOR = 'sensor'
@@ -847,6 +851,16 @@ class HLExcaliburDetector(ExcaliburDetector):
                     # Meta data here
                 })
 
+        for param in self.DAC_PARAMS:
+            self._fem_status[param] = [None]
+            fem_dict[param] = (lambda p=param:self.get_fem_status(p), {
+                    # Meta data here
+                })
+
+        for dac, dac_tgt in ExcaliburDefinitions.FEM_DAC_TARGET_VOLTAGES.items():
+            fem_dict['{}dac_target'.format(dac)] = lambda: dac_tgt
+        fem_dict['dac_threshold'] = lambda: ExcaliburDefinitions.FEM_DAC_VOLTAGE_THRESHOLD
+
         # Initialise the powercard parameter tree
         fem_tree = ParameterTree(fem_dict)
         return fem_tree
@@ -1107,9 +1121,36 @@ class HLExcaliburDetector(ExcaliburDetector):
             # Now send the command to load the DAC configuration
             self.hl_do_command('load_dacconfig')
 
+        self.readback_primary_dac_voltages()
+
         for fem in self._fems:
             self.set_calibration_status(fem, 1, 'dac')
             self.set_calibration_status(fem, 1, 'thresh')
+
+    def readback_primary_dac_voltages(self):
+        with self._comms_lock:
+            for dac_name, dac_code in ExcaliburDefinitions.FEM_DAC_SENSE_CODES.items():
+                cmd_ok, err_msg, dac_vals = self.readback_specific_dac_voltages(dac_code)
+                logging.debug('Readback voltages for DAC {}: {}'.format(dac_name, dac_vals))
+                if cmd_ok:
+                    with self._param_lock:
+                        for chip_i in range(ExcaliburDefinitions.X_CHIPS_PER_FEM):
+                            val = []
+                            for fem_i in range(len(self._fems)):
+                                # TODO: Fail if value outside threshold
+                                val.append(dac_vals[fem_i][chip_i])
+                            self._fem_status['{}dac_c{}'.format(dac_name, chip_i)] = val
+
+    def readback_specific_dac_voltages(self, dac_omr_code):
+            self.hl_write_params([ExcaliburParameter('mpx3_dacsense', [[dac_omr_code]],
+                                             fem=self._fems, chip=ExcaliburDefinitions.FEM_DEFAULT_CHIP_IDS)])
+            time.sleep(1.0)
+            self.hl_do_command('load_dacconfig')
+
+            dac_read_params = ExcaliburReadParameter('mpx3_dac_out')
+            cmd_ok, err_msg, vals = self.hl_read_params(dac_read_params)
+
+            return cmd_ok, err_msg, vals.get('mpx3_dac_out', None)
 
     def download_pixel_masks(self):
         pixel_params = []
@@ -1350,6 +1391,8 @@ class HLExcaliburDetector(ExcaliburDetector):
                 response = {'value': 1}
             elif path == 'command/continue_polling':
                 response = {'value': 1}
+            elif path == 'command/readback_dac':
+                response = {'value': 1}
             else:
                 try:
                     logging.debug("Searching for '%s': %s", path, self._tree_status.get(path, True))
@@ -1378,6 +1421,9 @@ class HLExcaliburDetector(ExcaliburDetector):
                 # Starting an acquisition!
                 logging.debug('Abort acquisition has been called')
                 self.hl_stop_acquisition()
+            elif path == 'command/readback_dac':
+                # Read the voltages of all GND, FBK and Cas DACS
+                self.readback_primary_dac_voltages()
             else:
                 self.queue_command({'path': path, 'data': data})
         except Exception as ex:
@@ -1628,6 +1674,8 @@ class HLExcaliburDetector(ExcaliburDetector):
         for param in self._powercard_status:
             self._powercard_status[param] = None
         for param in self.FEM_PARAMS:
+            self._fem_status[param] = [None]
+        for param in self.DAC_PARAMS:
             self._fem_status[param] = [None]
         for param in self.SUPPLY_PARAMS:
             self._supply_status[param] = [None]
