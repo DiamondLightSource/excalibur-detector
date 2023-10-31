@@ -104,17 +104,11 @@ class HLExcaliburDetector(ExcaliburDetector):
                          'pwr_fan_fault']
                         ]
 
-    EFUSE_PARAMS = [
-        'efuseid_c0',
-        'efuseid_c1',
-        'efuseid_c2',
-        'efuseid_c3',
-        'efuseid_c4',
-        'efuseid_c5',
-        'efuseid_c6',
-        'efuseid_c7',
-        'efuse_match'
-        ]
+    EFUSE_PARAMS = ['efuse_match']
+    EFUSE_PARAMS += ['efuseid_c{}'.format(i) for i in range(len(ExcaliburDefinitions.FEM_DEFAULT_CHIP_IDS))]
+    EFUSE_PARAMS += ['chipid_c{}'.format(i) for i in range(len(ExcaliburDefinitions.FEM_DEFAULT_CHIP_IDS))]
+    EFUSE_PARAMS += ['efuseid_rbv_c{}'.format(i) for i in range(len(ExcaliburDefinitions.FEM_DEFAULT_CHIP_IDS))]
+    EFUSE_PARAMS += ['chipid_rbv_c{}'.format(i) for i in range(len(ExcaliburDefinitions.FEM_DEFAULT_CHIP_IDS))]
 
     FEM_PARAMS = [
         'fem_local_temp',
@@ -515,6 +509,7 @@ class HLExcaliburDetector(ExcaliburDetector):
             self._command_thread = threading.Thread(target=self.command_loop)
             self._command_thread.start()
             self.init_hardware_values()
+            self.init_efuse_null_ids()
 
     def get_num_images(self):
         return self._num_images
@@ -868,6 +863,14 @@ class HLExcaliburDetector(ExcaliburDetector):
     def init_hardware_values(self):
         self.hl_set_gain_mode()
 
+    def init_efuse_null_ids(self):
+        # Assign empty strings to PVs
+        with self._comms_lock:
+            efuse_dict = {}
+            for efuse in self.EFUSE_PARAMS:
+                efuse_dict[efuse] = [0 if 'match' in efuse else ""] * len(self._fems)
+            self._efuse_status.update(efuse_dict)
+
     def hl_set_gain_mode(self):
         with self._comms_lock:
             # Initialise the detector parameters
@@ -1136,7 +1139,7 @@ class HLExcaliburDetector(ExcaliburDetector):
                 max_voltage = ExcaliburDefinitions.FEM_DAC_TARGET_VOLTAGES[dac_name] + ExcaliburDefinitions.FEM_DAC_VOLTAGE_THRESHOLD
                 if cmd_ok:
                     with self._param_lock:
-                        for chip_i in range(ExcaliburDefinitions.X_CHIPS_PER_FEM):
+                        for chip_i, chip in enumerate(ExcaliburDefinitions.FEM_DEFAULT_CHIP_IDS):
                             val = []
                             for fem_i in range(len(self._fems)):
                                 voltage = dac_vals[fem_i][chip_i]
@@ -2033,17 +2036,32 @@ class HLExcaliburDetector(ExcaliburDetector):
                 values = super(HLExcaliburDetector, self).get('command')['command']['fe_param_read']['value']
             return (cmd_ok, err_msg, values)
 
+    def bitreverse(self, bitsin, length):
+        bitsout = 0
+        for i in range(length):
+            mask = 1<<(length-1-i)
+            rightshift = length-1-i
+            bitsout = bitsout | (((bitsin&mask) >> rightshift) << i)
+        return bitsout
+
+    def decode_efuseid(self, efuseid):
+        y = (efuseid & 0xf0000000) >> 28
+        y_reverse = self.bitreverse(y,4)
+        x = (efuseid & 0x0f000000) >> 24
+        x_reverse = self.bitreverse(x,4)
+        wafer = (efuseid & 0x00fff000) >> 12
+        wafer_reverse = self.bitreverse(wafer,12)
+        return "W{}_{}{}".format(wafer_reverse, chr(x_reverse+64), y_reverse)
+    
     def hl_efuseid_read(self):
         response_status = 0
-        efuse_dict = {'efuseid_c0':  [],
-                      'efuseid_c1':  [],
-                      'efuseid_c2':  [],
-                      'efuseid_c3':  [],
-                      'efuseid_c4':  [],
-                      'efuseid_c5':  [],
-                      'efuseid_c6':  [],
-                      'efuseid_c7':  [],
-                      'efuse_match': []}
+        efuse_dict = {'efuse_match': []}
+        for chip_i, chip in enumerate(ExcaliburDefinitions.FEM_DEFAULT_CHIP_IDS):
+            efuse_dict['efuseid_rbv_c{}'.format(chip_i)] = []
+            efuse_dict['chipid_rbv_c{}'.format(chip_i)] = []
+            efuse_dict['efuseid_c{}'.format(chip_i)] = []
+            efuse_dict['chipid_c{}'.format(chip_i)] = []
+        
         if self._cal_file_root != '':
             try:
                 # First read out the efuse values from the files
@@ -2053,6 +2071,7 @@ class HLExcaliburDetector(ExcaliburDetector):
                     filename = self._cal_file_root + '/fem' + str(fem) + '/efuseIDs'
                     efid_parser.parse_file(filename)
                     recorded_efuses[fem] = efid_parser.efuse_ids
+                    
                 logging.debug("EfuseIDs read from file: %s", recorded_efuses)
                 fe_params = ['efuseid']
                 read_params = ExcaliburReadParameter(fe_params)
@@ -2067,12 +2086,17 @@ class HLExcaliburDetector(ExcaliburDetector):
                             fem = 1
                             for efuse in status['efuseid']:
                                 id_match = 1
-                                for chip_i in range(len(ExcaliburDefinitions.X_CHIPS_PER_FEM)):
-                                    efuse_dict['efuseid_c{}'.format(chip_i)].append(efuse[chip_i])
-                                    if recorded_efuses[fem][chip_i+1] != efuse[chip_i]:
-                                        self.set_error('Fem {} Chip {} EFuseId mismatch')
+                                for chip_i, chip in enumerate(ExcaliburDefinitions.FEM_DEFAULT_CHIP_IDS):
+                                    calib_id = recorded_efuses[fem][chip]
+                                    readback_id = efuse[chip_i]
+                                    efuse_dict['efuseid_c{}'.format(chip_i)].append(hex(calib_id))
+                                    efuse_dict['chipid_c{}'.format(chip_i)].append(self.decode_efuseid(calib_id))
+                                    efuse_dict['efuseid_rbv_c{}'.format(chip_i)].append(hex(readback_id))
+                                    efuse_dict['chipid_rbv_c{}'.format(chip_i)].append(self.decode_efuseid(readback_id))
+                                    if calib_id != readback_id:
+                                        self.set_error('Fem {} Chip {} EFuseId mismatch'.format(fem, chip_i))
                                         id_match = 0
-                                        
+
                                 efuse_dict['efuse_match'].append(id_match)
                                 fem += 1
                         break
