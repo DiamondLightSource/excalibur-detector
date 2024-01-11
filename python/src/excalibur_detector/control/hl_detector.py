@@ -2095,7 +2095,7 @@ class HLExcaliburDetector(ExcaliburDetector):
                                     efuse_dict['chipid_c{}'.format(chip_i)].append(self.decode_efuseid(calib_id))
                                     efuse_dict['efuseid_rbv_c{}'.format(chip_i)].append(hex(readback_id))
                                     efuse_dict['chipid_rbv_c{}'.format(chip_i)].append(self.decode_efuseid(readback_id))
-                                    efuse_dict['efuse_c{}_match'.format(chip_i)].append(calib_id==readback_id)
+                                    efuse_dict['efuse_c{}_match'.format(chip_i)].append(int(calib_id==readback_id))
                                     if calib_id != readback_id:
                                         self.set_error('Fem {} Chip {} EFuseId mismatch'.format(fem, chip_i))
                                         id_match = 0
