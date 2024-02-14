@@ -135,6 +135,7 @@ class HLExcaliburDetector(ExcaliburDetector):
             for dac in ExcaliburDefinitions.FEM_DAC_SENSE_CODES]
 
     STR_STATUS = 'status'
+    STR_STATUS_WARNING = 'warning'
     STR_STATUS_POLL_ACTIVE = 'poll_active'
     STR_STATUS_SENSOR = 'sensor'
     STR_STATUS_SENSOR_WIDTH = 'width'
@@ -191,6 +192,7 @@ class HLExcaliburDetector(ExcaliburDetector):
     STR_CONFIG_HV_ENABLE = 'hv_enable'
     STR_CONFIG_TEST_DAC_FILE = 'test_dac_file'
     STR_CONFIG_TEST_MASK_FILE = 'test_mask_file'
+    STR_CONFIG_FEM_ERROR_MODE = 'fem_error_mode'
 
     def __init__(self, fem_connections, simulated=False):
         self._simulated = simulated
@@ -221,6 +223,12 @@ class HLExcaliburDetector(ExcaliburDetector):
 
         # Initialise dual 12 bit status
         self._dual_12bit_valid = False
+
+        # Initialise warning message
+        self._warning = ''
+
+        # Initilise FEM error mode
+        self._fem_error_mode = 1
 
         # Initialise error message
         self._error = ''
@@ -325,6 +333,9 @@ class HLExcaliburDetector(ExcaliburDetector):
                     # Meta data here
                 }),
                 self.STR_STATUS_ERROR: (self.get_error, {
+                    # Meta data here
+                }),
+                self.STR_STATUS_WARNING: (self.get_warning, {
                     # Meta data here
                 }),
                 self.STR_STATUS_STATE: (self.get_state, {
@@ -456,7 +467,10 @@ class HLExcaliburDetector(ExcaliburDetector):
                 }),
                 self.STR_CONFIG_TEST_MASK_FILE: (self.get_test_mask_file, self.set_test_dac_file, {
                     # Meta data here
-                })
+                }),
+                self.STR_CONFIG_FEM_ERROR_MODE: (self.get_fem_error_mode, self.set_fem_error_mode, {
+                    # Meta data here
+                }),
             }
         }
 
@@ -509,8 +523,8 @@ class HLExcaliburDetector(ExcaliburDetector):
             self._command_queue = queue.Queue()
             self._command_thread = threading.Thread(target=self.command_loop)
             self._command_thread.start()
-            self.init_hardware_values()
             self.init_efuse_null_ids()
+            self.init_hardware_values()
 
     def get_num_images(self):
         return self._num_images
@@ -761,6 +775,9 @@ class HLExcaliburDetector(ExcaliburDetector):
     def get_error(self):
         return self._error
 
+    def get_warning(self):
+        return self._warning
+
     def get_fem_state(self):
         return self._fem_state
 
@@ -778,6 +795,14 @@ class HLExcaliburDetector(ExcaliburDetector):
 
     def get_dacs(self):
         return self._dacs
+
+    def get_fem_error_mode(self):
+        return self._fem_error_mode
+
+    def set_fem_error_mode(self, value):
+        self.clear_warning()
+        self.clear_error()
+        self._fem_error_mode = value
 
     def init_powercard(self):
         # First, initialise the powercard status dict from the POWERCARD_PARAMS
@@ -1053,6 +1078,7 @@ class HLExcaliburDetector(ExcaliburDetector):
             if lv_enabled == 1:
                 try:
                     self._calibrating = 1
+                    self.clear_warning()
                     self.clear_error()
                     self._state = HLExcaliburDetector.STATE_CALIBRATING
                     logging.info("Calibrating now...")
@@ -1074,6 +1100,11 @@ class HLExcaliburDetector(ExcaliburDetector):
                             self._dual_12bit_valid = False
                         self.download_dac_calibration()
                         self.download_pixel_calibration()
+
+                        response_status, efuse_dict = self.hl_efuseid_read()
+                        self._efuse_status.update(efuse_dict)
+                        logging.debug("EFUSE return status: %s", response_status)
+
                     else:
                         logging.info("No calibration root supplied")
                     self._calibrating = 0
@@ -1133,6 +1164,7 @@ class HLExcaliburDetector(ExcaliburDetector):
 
     def readback_primary_dac_voltages(self):
         with self._comms_lock:
+            num_failed = 0
             for dac_name, dac_code in ExcaliburDefinitions.FEM_DAC_SENSE_CODES.items():
                 cmd_ok, err_msg, dac_vals = self.readback_specific_dac_voltages(dac_code)
                 logging.debug('Readback voltages for DAC {}: {}'.format(dac_name, dac_vals))
@@ -1145,7 +1177,8 @@ class HLExcaliburDetector(ExcaliburDetector):
                             for fem_i in range(len(self._fems)):
                                 voltage = dac_vals[fem_i][chip_i]
                                 if voltage > max_voltage or voltage < min_voltage:
-                                    self.set_error("Fem {} Chip {} {} DAC at {:.3f}V (Threshold is {}+/-{}V)"\
+                                    num_failed += 1
+                                    logging.error("Fem {} Chip {} {} DAC at {:.3f}V (Threshold is {}+/-{}V)"\
                                         .format(self._fems[fem_i],
                                             ExcaliburDefinitions.FEM_DEFAULT_CHIP_IDS[chip_i], 
                                             dac_name,
@@ -1154,6 +1187,11 @@ class HLExcaliburDetector(ExcaliburDetector):
                                             ExcaliburDefinitions.FEM_DAC_VOLTAGE_THRESHOLD))
                                 val.append(voltage)
                             self._fem_status['{}dac_c{}'.format(dac_name, chip_i)] = val
+            if num_failed:
+                if self.get_fem_error_mode():
+                    self.set_error("{} DACs outside voltage tolerance".format(num_failed))
+                else:
+                    self.set_warning("Warning: {} DACs outside voltage tolerance".format(num_failed))
 
     def readback_specific_dac_voltages(self, dac_omr_code):
             self.hl_write_params([ExcaliburParameter('mpx3_dacsense', [[dac_omr_code]],
@@ -1419,6 +1457,7 @@ class HLExcaliburDetector(ExcaliburDetector):
             return response
 
     def set(self, path, data):
+        self.clear_warning()
         self.clear_error()
         try:
             if path == 'command/start_acquisition':
@@ -1443,6 +1482,14 @@ class HLExcaliburDetector(ExcaliburDetector):
         except Exception as ex:
             self.set_error(str(ex))
             raise ExcaliburDetectorError(str(ex))
+
+    def set_warning(self, warn):
+        # Record the warning message into the status
+        # Note that error messages always override warnings
+        self._warning = warn
+
+    def clear_warning(self):
+        self._warning = ""
 
     def set_error(self, err):
         # Record the error message into the status
@@ -1580,14 +1627,14 @@ class HLExcaliburDetector(ExcaliburDetector):
                             logging.error("Connection to hardware lost in power_card_read method")
                             self.connection_lost()
 
-        with self._param_lock:
-            # Check for the current HV enabled state
-            hv_enabled = 0
-            # Greater than hv_bias means the HV is enabled
-            if self._powercard_status['pwr_bias_vmon'] > self._hv_bias - 5.0:
-                hv_enabled = 1
-            self._powercard_status[self.STR_STATUS_POWERCARD_HV_ENABLED] = hv_enabled
-            logging.debug("Power card update status: %s", self._powercard_status)
+            with self._param_lock:
+                # Check for the current HV enabled state
+                hv_enabled = 0
+                # Greater than hv_bias means the HV is enabled
+                if self._powercard_status['pwr_bias_vmon'] > self._hv_bias - 5.0:
+                    hv_enabled = 1
+                self._powercard_status[self.STR_STATUS_POWERCARD_HV_ENABLED] = hv_enabled
+                logging.debug("Power card update status: %s", self._powercard_status)
 
     def slow_read(self):
         logging.debug("Entering slow_read")
@@ -1697,6 +1744,7 @@ class HLExcaliburDetector(ExcaliburDetector):
     def hl_arm_detector(self):
         # Perform all of the actions required to get the detector ready for an acquisition
         with self._comms_lock:
+            self.clear_warning()
             self.clear_error()
 
             # Start by downloading the UDP configuration
@@ -2086,6 +2134,7 @@ class HLExcaliburDetector(ExcaliburDetector):
                             logging.debug("Command has succeeded")
                             status = super(HLExcaliburDetector, self).get('command')['command']['fe_param_read']['value']
                             fem = 1
+                            num_failed = 0
                             for efuse in status['efuseid']:
                                 id_match = 1
                                 for chip_i, chip in enumerate(ExcaliburDefinitions.FEM_DEFAULT_CHIP_IDS):
@@ -2097,11 +2146,17 @@ class HLExcaliburDetector(ExcaliburDetector):
                                     efuse_dict['chipid_rbv_c{}'.format(chip_i)].append(self.decode_efuseid(readback_id))
                                     efuse_dict['efuse_c{}_match'.format(chip_i)].append(int(calib_id==readback_id))
                                     if calib_id != readback_id:
-                                        self.set_error('Fem {} Chip {} EFuseId mismatch'.format(fem, chip_i))
+                                        num_failed += 1
+                                        logging.error('Fem {} Chip {} EFuseId mismatch'.format(fem, chip_i))
                                         id_match = 0
 
                                 efuse_dict['efuse_match'].append(id_match)
                                 fem += 1
+                            if num_failed:
+                                if self.get_fem_error_mode():
+                                    self.set_error("{} EFuseID mismatches".format(num_failed))
+                                else:
+                                    self.set_warning("Warning: {} EFuseID mismatches".format(num_failed))
                         break
             except:
                 # Unable to get the efuse IDs so set the dict up with None vales
