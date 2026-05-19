@@ -39,6 +39,7 @@ __pycache__/
 .Python
 env/
 build/
+vscode_build/
 develop-eggs/
 dist/
 downloads/
