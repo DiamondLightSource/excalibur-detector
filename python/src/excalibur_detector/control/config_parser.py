@@ -4,10 +4,7 @@ Created on Apr 3 2017
 '''
 
 from collections import OrderedDict
-try:
-    import configparser
-except:
-    from six.moves import configparser
+import configparser
 import logging
 
 
@@ -69,11 +66,11 @@ class ExcaliburDacConfigIniParser(object):
             'TPBufferOut': 'TPBuffOut',
         }
         
-        parser = configparser.SafeConfigParser()
+        parser = configparser.ConfigParser()
         
         try:
             with open(config) as fp:
-                parser.readfp(fp)
+                parser.read_file(fp)
         except IOError as e:
             logging.error('Failed to parse DAC configuration file: {}'.format(e))
             raise IOError('Failed to parse DAC configuration file: {}'.format(e))
