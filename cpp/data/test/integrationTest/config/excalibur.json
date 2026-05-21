@@ -4,12 +4,14 @@
             "process": true,
             "command": "${CMAKE_INSTALL_PREFIX}/bin/frameReceiver",
             "pos-args": "",
+            "socket": "tcp://127.0.0.1:5000",
             "sleep": "1"
         },
         "processor": {
             "process": true,
             "command": "${CMAKE_INSTALL_PREFIX}/bin/frameProcessor",
             "pos-args": "",
+            "socket": "tcp://127.0.0.1:5001",
             "sleep": "1"
         },
         "simulator": {
