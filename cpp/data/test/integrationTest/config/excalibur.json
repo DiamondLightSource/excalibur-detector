@@ -21,7 +21,7 @@
             "sleep": 10
         },
         "test": {
-            "process": false,
+            "process": true,
             "command": "${CMAKE_INSTALL_PREFIX}/bin/frameTests --log_level=all -- ",
             "pos-args": "",
             "sleep": 1
