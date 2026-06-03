@@ -1,0 +1,21 @@
+{
+    "version": 5,
+    "configurePresets": [
+        {
+            "name": "dev",
+            "generator": "Unix Makefiles",
+            "binaryDir": "${sourceDir}/build",
+            "cacheVariables": {
+                "CMAKE_INSTALL_PREFIX": "/odin",
+                "ODINDATA_ROOT_DIR": "/odin"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "dev",
+            "configurePreset": "dev",
+            "verbose": true
+        }
+    ]
+}
