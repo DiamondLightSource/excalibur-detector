@@ -1,9 +1,8 @@
-# Project name
-project(ExcalburDetector)
-set(SOURCE_DIR ${ExcalburDetector_SOURCE_DIR})
+cmake_minimum_required(VERSION 3.23)
 
-# Require CMake version >=2.8
-cmake_minimum_required(VERSION 2.8)
+# Project name
+project(ExcaliburDetector)
+set(SOURCE_DIR ${ExcaliburDetector_SOURCE_DIR})
 
 # Allow macOS shared (dynamic) libraries to link with undefined symbols
 if (APPLE)

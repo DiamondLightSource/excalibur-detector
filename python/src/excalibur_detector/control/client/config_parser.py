@@ -5,10 +5,7 @@ Created on Apr 3 2017
 '''
 
 from collections import OrderedDict
-try:                # pragma: no cover
-    import configparser
-except ImportError: # pragma: no cover
-    import ConfigParser as configparser
+import configparser
     
 import logging
 import os
@@ -65,11 +62,11 @@ class ExcaliburDacConfigIniParser(object):
             'TPBufferOut': 'TPBuffOut',
         }
         
-        parser = configparser.SafeConfigParser()
+        parser = configparser.ConfigParser()
         
         try:
             with open(config) as fp:
-                parser.readfp(fp)
+                parser.read_file(fp)
         except IOError as e:
             logging.error('Failed to parse DAC configuration file: {}'.format(e))
 
