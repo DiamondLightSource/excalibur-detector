@@ -4,7 +4,6 @@ Test cases for the ExcaliburDetector class of the ODIN server EXCALIBUR plugin
 Tim Nicholls, STFC Application Engineering Group
 """
 
-from nose.tools import *
 import logging
 from unittest.mock import Mock
 
@@ -29,29 +28,29 @@ class TestExcaliburDetector():
         root_logger.setLevel(logging.DEBUG)
 
     def test_detector_simple_init(self):
-        assert_equal(len(self.detector.fems), len(self.detector_fems))
+        assert len(self.detector.fems) == len(self.detector_fems)
 
     def test_wait_for_read_completion(self):
         # Mock out the low level calls for get
         self.detector.get = Mock(return_value={'command_pending': False, 'command_succeeded': True})
-        assert_equal((True, ''), self.detector.wait_for_read_completion())
+        assert (True, '') == self.detector.wait_for_read_completion()
         self.detector.get = Mock(return_value={'command_pending': False, 'command_succeeded': False})
         self.detector.get_fem_error_state = Mock(return_value=[(1, 0, 1, 'Test Error')])
-        assert_equal((False, 'Command read_fe_param failed on 1 FEMs'), self.detector.wait_for_read_completion())
+        assert (False, 'Command read_fe_param failed on 1 FEMs') == self.detector.wait_for_read_completion()
 
     def test_wait_for_completion(self):
         # Mock out the low level calls for get
         self.detector.get = Mock(return_value={'command_pending': False, 'command_succeeded': True})
-        assert_equal((True, ''), self.detector.wait_for_completion())
+        assert (True, '') == self.detector.wait_for_completion()
         self.detector.get = Mock(return_value={'command_pending': False, 'command_succeeded': False})
         self.detector.get_fem_error_state = Mock(return_value=[(1, 0, 1, 'Test Error')])
-        assert_equal((False, 'Command write_fe_param failed on 1 FEMs'), self.detector.wait_for_completion())
+        assert (False, 'Command write_fe_param failed on 1 FEMs') == self.detector.wait_for_completion()
 
     def test_set_calibration_status(self):
         self.detector.set_calibration_status(1, 1, 'dac')
-        assert_equal(self.detector._status['calibration'][0], 1)
+        assert self.detector._status['calibration'][0] == 1
         self.detector.set_calibration_status(2, 1)
-        assert_equal(self.detector._status['calibration'][1], 63)
+        assert self.detector._status['calibration'][1] == 63
 
     def test_execute_command(self):
         hl_initialise = self.detector.hl_initialise

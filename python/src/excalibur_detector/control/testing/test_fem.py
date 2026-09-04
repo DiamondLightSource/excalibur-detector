@@ -1,20 +1,20 @@
-from nose.tools import *
 import random
 import sys
 
 from excalibur_detector.control.fem import ExcaliburFem, ExcaliburFemError
 from excalibur_detector.control.parameter import *
+from unittest import TestCase
 
-class TestExcaliburFemError:
+class TestExcaliburFemError(TestCase):
 
     def test_error_value(self):
 
         value = 'Test error value'
-        with assert_raises_regexp(ExcaliburFemError, value):
+        with self.assertRaisesRegex(ExcaliburFemError, value):
             raise ExcaliburFemError(value)
 
 
-class TestExcaliburMissingApiLibrary:
+class TestExcaliburMissingApiLibrary(TestCase):
 
     @classmethod
     def setup_class(cls):
@@ -40,11 +40,11 @@ class TestExcaliburMissingApiLibrary:
 
     def test_missing_library(self):
 
-        with assert_raises_regexp(ExcaliburFemError, 'Failed to load API module: No module named'):
+        with self.assertRaisesRegex(ExcaliburFemError, 'Failed to load API module: No module named'):
             fem = ExcaliburFem(self.fem_id, self.fem_address, self.fem_port, self.data_address)
 
 
-class TestExcaliburFem:
+class TestExcaliburFem(TestCase):
 
     @classmethod
     def setup_class(cls):
@@ -67,20 +67,20 @@ class TestExcaliburFem:
 
     def test_legal_fem_id(self):
 
-        assert_equal(self.fem_id, self.the_fem.get_id())
+        assert self.fem_id == self.the_fem.get_id()
 
     def test_illegal_fem_id(self):
 
         id = -1
-        with assert_raises(ExcaliburFemError) as cm:
+        with self.assertRaises(ExcaliburFemError) as cm:
             bad_fem = ExcaliburFem(id, self.fem_address, self.fem_port, self.data_address)
-        assert_equal(cm.exception.value, 'Failed to initialise FEM connection: Illegal ID specified')
+        assert cm.exception.value == 'Failed to initialise FEM connection: Illegal ID specified'
 
     def test_fem_id_exception(self):
 
         temp_fem = ExcaliburFem(1, self.fem_address, self.fem_port, self.data_address)
         temp_fem.fem_handle = None
-        with assert_raises_regexp(
+        with self.assertRaisesRegex(
                 ExcaliburFemError, 'get_id: resolved FEM object pointer to null'):
             temp_fem.get_id()
 
@@ -88,9 +88,9 @@ class TestExcaliburFem:
 
         the_fem = ExcaliburFem(0, self.fem_address, self.fem_port, self.data_address)
         the_fem.close()
-        with assert_raises(ExcaliburFemError) as cm:
+        with self.assertRaises(ExcaliburFemError) as cm:
             the_fem.close()
-        assert_equal(cm.exception.value, 'close: FEM object pointer has null FEM handle')
+        assert cm.exception.value == 'close: FEM object pointer has null FEM handle'
 
     def test_legal_get_ints(self):
 
@@ -99,9 +99,9 @@ class TestExcaliburFem:
         param_len = 10
         (rc, values) = self.the_fem.get_int(chip_id, param_id, param_len)
 
-        assert_equal(rc, FEM_RTN_OK)
-        assert_equal(len(values), param_len)
-        assert_equal(values, list(range(param_id, param_id+param_len)))
+        assert rc == FEM_RTN_OK
+        assert len(values) == param_len
+        assert values == list(range(param_id, param_id+param_len))
 
     def test_get_int_exception(self):
 
@@ -112,7 +112,7 @@ class TestExcaliburFem:
         temp_fem = ExcaliburFem(1, self.fem_address, self.fem_port, self.data_address)
         temp_fem.fem_handle = None
 
-        with assert_raises_regexp(
+        with self.assertRaisesRegex(
                 ExcaliburFemError, 'get_int: resolved FEM object pointer to null'):
             temp_fem.get_int(chip_id, param_id, param_len)
 
@@ -125,7 +125,7 @@ class TestExcaliburFem:
 
         rc = self.the_fem.set_int(chip_id, param_id, offset, value)
 
-        assert_equal(rc, FEM_RTN_OK)
+        assert rc == FEM_RTN_OK
 
     def test_legal_set_ints(self):
 
@@ -137,7 +137,7 @@ class TestExcaliburFem:
 
         rc = self.the_fem.set_int(chip_id, param_id, offset, values)
 
-        assert_equal(rc, FEM_RTN_OK)
+        assert rc == FEM_RTN_OK
 
     def test_illegal_set_int(self):
 
@@ -146,9 +146,9 @@ class TestExcaliburFem:
         offset = 0
         values = [3.14]*10
 
-        with assert_raises(ExcaliburFemError) as cm:
+        with self.assertRaises(ExcaliburFemError) as cm:
             rc = self.the_fem.set_int(chip_id, param_id, offset, values)
-        assert_equal(cm.exception.value, 'set_int: non-integer value specified')
+        assert cm.exception.value == 'set_int: non-integer value specified'
 
     def test_legal_set_and_get_int(self):
 
@@ -159,11 +159,11 @@ class TestExcaliburFem:
         values_in = [random.randint(0, 1000000) for x in range(param_len)]
 
         rc = self.the_fem.set_int(chip_id, param_id, offset, values_in)
-        assert_equal(rc, FEM_RTN_OK)
+        assert rc == FEM_RTN_OK
 
         (rc, values_out) = self.the_fem.get_int(chip_id, param_id, param_len)
-        assert_equal(rc, FEM_RTN_OK)
-        assert_equal(values_in, values_out)
+        assert rc == FEM_RTN_OK
+        assert values_in == values_out
         
     def test_legal_set_string(self):
         
@@ -173,21 +173,21 @@ class TestExcaliburFem:
         values = [u"these", u"are", u"strings"]
         
         rc = self.the_fem.set_string(chip_id, param_id, offset, values)
-        assert_equal(rc, FEM_RTN_OK)
+        assert rc == FEM_RTN_OK
         
     def test_legal_cmd(self):
 
         chip_id = 0
         cmd_id = 1
         rc = self.the_fem.cmd(chip_id, cmd_id)
-        assert_equal(rc, FEM_RTN_OK)
+        assert rc == FEM_RTN_OK
 
     def test_illegal_cmd(self):
 
         chip_id  = 0;
         cmd_id = -1
         rc = self.the_fem.cmd(chip_id, cmd_id)
-        assert_equal(rc, FEM_RTN_UNKNOWNOPID)
+        assert rc == FEM_RTN_UNKNOWNOPID
 
     def test_cmd_exception(self):
 
@@ -197,6 +197,6 @@ class TestExcaliburFem:
         temp_fem = ExcaliburFem(1, self.fem_address, self.fem_port, self.data_address)
         temp_fem.fem_handle = None
 
-        with assert_raises_regexp(
+        with self.assertRaisesRegex(
                 ExcaliburFemError, 'cmd: resolved FEM object pointer to null'):
             temp_fem.cmd(chip_id, cmd_id)

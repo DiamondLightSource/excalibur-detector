@@ -5,7 +5,6 @@ Tim Nicholls, STFC Application Engineering Group
 
 import sys
 import json
-from nose.tools import *
 
 if sys.version_info[0] == 3:  # pragma: no cover
     from unittest.mock import Mock
@@ -42,17 +41,17 @@ class TestExcaliburAdapter(ExcaliburAdapterFixture):
 
     def test_adapter_name(self):
 
-        assert_equal(self.adapter.name, 'ExcaliburAdapter')
+        assert self.adapter.name == 'ExcaliburAdapter'
 
     def test_adapter_single_fem(self):
         adapter_params = {'detector_fems': '192.168.0.1:6969'}
         adapter = ExcaliburAdapter(**adapter_params)
-        assert_equal(len(adapter.detector.fems), 1)
+        assert len(adapter.detector.fems) == 1
 
     def test_adapter_bad_fem_config(self):
         adapter_params = {'detector_fems': '192.168.0.1 6969, 192.168.0.2:6969'}
         adapter = ExcaliburAdapter(**adapter_params)
-        assert_equal(adapter.detector, None)
+        assert adapter.detector is None
 
     def test_adapter_bad_powercard_idx(self):
         adapter_params = {
@@ -60,7 +59,7 @@ class TestExcaliburAdapter(ExcaliburAdapterFixture):
             'powercard_fem_idx': 'nonsense'
         }
         adapter = ExcaliburAdapter(**adapter_params)
-        assert_equal(adapter.detector.powercard_fem_idx, None)
+        assert adapter.detector.powercard_fem_idx is None
         
     def test_adapter_bad_chip_mask(self):
         adapter_params = {
@@ -68,12 +67,12 @@ class TestExcaliburAdapter(ExcaliburAdapterFixture):
             'chip_enable_mask': '0xff, 0x3f, 1.235',
         }
         adapter = ExcaliburAdapter(**adapter_params)
-        assert_equal(adapter.detector.chip_enable_mask, None)
+        assert adapter.detector.chip_enable_mask is None
         
     def test_adapter_get(self):
         response = self.adapter.get(self.path, self.request)
-        assert_true(isinstance(response.data, dict))
-        assert_equal(response.status_code, 200)
+        assert isinstance(response.data, dict)
+        assert response.status_code == 200
 
     def test_adapter_get_raises_400(self):
         adapter_params = {
@@ -84,14 +83,14 @@ class TestExcaliburAdapter(ExcaliburAdapterFixture):
         adapter.detector.get = Mock()
         adapter.detector.get.side_effect = ExcaliburDetectorError('detector error')
         response = adapter.get(self.path, self.request)
-        assert_equal(response.status_code, 400)
+        assert response.status_code == 400
         
     def test_adapter_put(self):     
         self.request.body = json.dumps({'connect': {'state': True}})
         put_path = 'command'
         response = self.adapter.put(put_path, self.request)
-        assert_true(isinstance(response.data, dict))
-        assert_equal(response.status_code, 200)
+        assert isinstance(response.data, dict)
+        assert response.status_code == 200
         
     def test_adapter_put_raises_400(self):
         adapter_params = {
@@ -102,19 +101,19 @@ class TestExcaliburAdapter(ExcaliburAdapterFixture):
         adapter.detector.put = Mock()
         adapter.detector.put.side_effect = ExcaliburDetectorError('detector error')
         response = adapter.put(self.path, self.request)
-        assert_equal(response.status_code, 400)
+        assert response.status_code == 400
 
     def test_adapter_bad_path(self):
         response = self.adapter.put('bad_path', self.request)
-        assert_equal(response.status_code, 400)
+        assert response.status_code == 400
 
     def test_adapter_delete(self):
         expected_response = {
             'response': '{}: DELETE on path {}'.format(self.adapter.name, self.path)
         }
         response = self.adapter.delete(self.path, self.request)
-        assert_equal(response.data, expected_response)
-        assert_equal(response.status_code, 200)
+        assert response.data == expected_response
+        assert response.status_code == 200
 
 
 class TestExcaliburAdapterNoFems(ExcaliburAdapterFixture):
@@ -124,8 +123,8 @@ class TestExcaliburAdapterNoFems(ExcaliburAdapterFixture):
         super(TestExcaliburAdapterNoFems, cls).setup_class()
 
     def test_adapter_no_fems(self):
-        assert_equal(self.adapter.detector, None)
+        assert self.adapter.detector is None
 
     def test_adapter_no_fems_get(self):
         response = self.adapter.get(self.path, self.request)
-        assert_equal(response.status_code, 500)
+        assert response.status_code == 500
