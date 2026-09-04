@@ -8,8 +8,8 @@ from nose.tools import *
 import requests
 import json
 
-from odin.testing.utils import OdinTestServer
-from excalibur_detector.fem import ExcaliburFem
+from excalibur_detector.control.fem import ExcaliburFem
+from excalibur_detector.control.adapter import ExcaliburAdapter
 from excalibur_detector.adapter import ExcaliburAdapter
 
 class TestExcaliburPlugin(OdinTestServer):

@@ -12,9 +12,9 @@ if sys.version_info[0] == 3:  # pragma: no cover
 else:                         # pragma: no cover
     from mock import Mock
 
-from excalibur_detector.adapter import ExcaliburAdapter
-from excalibur_detector.detector import ExcaliburDetectorError
-from excalibur_detector.fem import ExcaliburFem
+from excalibur_detector.control.adapter import ExcaliburAdapter
+from excalibur_detector.control.detector import ExcaliburDetectorError
+from excalibur_detector.control.fem import ExcaliburFem
 
 class ExcaliburAdapterFixture(object):
 

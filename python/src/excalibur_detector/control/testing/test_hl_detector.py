@@ -6,10 +6,10 @@ Tim Nicholls, STFC Application Engineering Group
 
 from nose.tools import *
 import logging
-from mock import Mock
+from unittest.mock import Mock
 
-from excalibur_detector.hl_detector import HLExcaliburDetector, ExcaliburParameter
-from excalibur_detector.fem import ExcaliburFem
+from excalibur_detector.control.hl_detector import HLExcaliburDetector, ExcaliburParameter
+from excalibur_detector.control.fem import ExcaliburFem
 
 
 class TestExcaliburDetector():

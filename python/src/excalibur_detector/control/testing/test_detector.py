@@ -6,8 +6,8 @@ Tim Nicholls, STFC Application Engineering Group
 from nose.tools import *
 import logging
 
-from excalibur_detector.detector import ExcaliburDetector, ExcaliburDetectorError
-from excalibur_detector.fem import ExcaliburFem
+from excalibur_detector.control.detector import ExcaliburDetector, ExcaliburDetectorError
+from excalibur_detector.control.fem import ExcaliburFem
 
 class TestExcaliburDetector():
 
