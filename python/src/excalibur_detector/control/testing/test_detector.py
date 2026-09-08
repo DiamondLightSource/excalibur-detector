@@ -110,7 +110,7 @@ class TestExcaliburDetector(TestCase):
     def test_detector_bad_get(self):
         
         bad_path = 'missing_path'
-        with self.assertRaisesRegex(ExcaliburDetectorError, 'The path {} is invalid'.format(bad_path)):
+        with self.assertRaisesRegex(ExcaliburDetectorError, 'Invalid path: {}'.format(bad_path)):
             response = self.detector.get(bad_path)
         
     def test_detector_bad_set(self):

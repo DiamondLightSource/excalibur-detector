@@ -41,16 +41,16 @@ class TestExcaliburDetector():
     def test_wait_for_completion(self):
         # Mock out the low level calls for get
         self.detector.get = Mock(return_value={'command_pending': False, 'command_succeeded': True})
-        assert (True, '') == self.detector.wait_for_completion()
+        assert (True, '') == self.detector.wait_for_completion('read_fe_param')
         self.detector.get = Mock(return_value={'command_pending': False, 'command_succeeded': False})
         self.detector.get_fem_error_state = Mock(return_value=[(1, 0, 1, 'Test Error')])
-        assert (False, 'Command write_fe_param failed on 1 FEMs') == self.detector.wait_for_completion()
+        assert (False, 'Command write_fe_param failed on 1 FEMs') == self.detector.wait_for_completion('write_fe_param')
 
     def test_set_calibration_status(self):
         self.detector.set_calibration_status(1, 1, 'dac')
-        assert self.detector._status['calibration'][0] == 1
+        assert self.detector._calibration_status['dac'][0] == 1
         self.detector.set_calibration_status(2, 1)
-        assert self.detector._status['calibration'][1] == 63
+        assert self.detector._calibration_status['dac'][1] == 1
 
     def test_execute_command(self):
         hl_initialise = self.detector.hl_initialise
@@ -135,6 +135,6 @@ class TestExcaliburDetector():
         self.detector.do_command = Mock()
         self.detector.write_fe_param = Mock()
         self.detector.hl_initialise()
-        self.detector.write_fe_param.assert_called_with([ExcaliburParameter(param='fe_vdd_enable', value=[[1]], fem=1, chip=0)])
+        self.detector.write_fe_param.assert_called_with([ExcaliburParameter(param='fe_vdd_enable', value=[[1]], fem=0, chip=0)])
         self.detector.do_command.assert_called_with('stop_acquisition', None)
 
