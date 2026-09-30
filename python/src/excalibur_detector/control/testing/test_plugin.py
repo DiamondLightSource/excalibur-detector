@@ -3,53 +3,36 @@ test_plugin.py - end-to-end testing of the EXCALIBUR plugin in an ODIN server in
 Tim Nicholls, STFC Application Engineering Group
 """
 
-from nose.tools import *
 
 import requests
 import json
 
-from odin.testing.utils import OdinTestServer
-from excalibur_detector.fem import ExcaliburFem
-from excalibur_detector.adapter import ExcaliburAdapter
+from excalibur_detector.control.fem import ExcaliburFem
+from excalibur_detector.control.adapter import ExcaliburAdapter
+from excalibur_detector.control.testing.test_adapter import ExcaliburAdapterFixture 
 
-class TestExcaliburPlugin(OdinTestServer):
-
+class TestExcaliburPlugin(ExcaliburAdapterFixture):
     @classmethod
     def setup_class(cls):
-
-        ExcaliburFem.use_stub_api = True
-        ExcaliburAdapter.use_raw_detector = True
         cls.json_request_headers = {
             'Content-Type': 'application/json',
             'Accept': 'application/json'
         }
         adapter_config = {
-            'excalibur': {
-                'module': 'excalibur.adapter.ExcaliburAdapter',
-                'detector_fems': '192.168.0.1:6969, 192.168.0.2:6969, 192.168.0.3:6969',
-            }
+             'module': 'excalibur.adapter.ExcaliburAdapter',
+             'detector_fems': '192.168.0.1:6969, 192.168.0.2:6969, 192.168.0.3:6969',
         }
-        super(TestExcaliburPlugin, cls).setup_class(adapter_config)
+        super().setup_class(**adapter_config)
 
-    @classmethod
-    def teardown_class(cls):
-        super(TestExcaliburPlugin, cls).teardown_class()
 
     def test_simple_get(self):
-        result = requests.get(
-            self.build_url('excalibur/status/fem'),
-            headers=self.json_request_headers
-        )
-        
-        assert_equal(result.status_code, 200)
-        assert_true('fem' in result.json())
+        result = self.adapter.get('status/fem', self.request)
+        assert result.status_code == 200    
+
 
     def test_adapter_connect(self):
         connect_params = {'connect': {'state': True}}
-        result = requests.put(
-            self.build_url('excalibur/command'),
-            headers=self.json_request_headers,
-            data = json.dumps(connect_params)
-        )
-        assert_equal(result.status_code, 200)
-        assert_true('command' in result.json())
+        self.request.body = json.dumps(connect_params)
+
+        result = self.adapter.put('command', self.request)
+        assert result.status_code == 200

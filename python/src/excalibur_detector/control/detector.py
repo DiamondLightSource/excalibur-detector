@@ -8,8 +8,8 @@ import threading
 from functools import partial
 from concurrent import futures
 
-from odin.adapters.parameter_tree import ParameterTree, ParameterTreeError
-from odin.util import run_in_executor
+from odin_control.adapters.parameter_tree import ParameterTree, ParameterTreeError
+from odin_control.util import run_in_executor
 
 from excalibur_detector.control.fem import ExcaliburFem, ExcaliburFemError
 from excalibur_detector.control.parameter import *

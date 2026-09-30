@@ -17,7 +17,7 @@ if is_py2:
 else:
     import queue as queue
 
-from odin.adapters.parameter_tree import ParameterAccessor, ParameterTree
+from odin_control.adapters.parameter_tree import ParameterAccessor, ParameterTree
 from enum import Enum
 from collections import OrderedDict
 
